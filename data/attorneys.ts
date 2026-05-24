@@ -245,14 +245,14 @@ Adedotun Oseni Ibrahim assists in litigation support, legal documentation, compl
 
     role: "Paralegal & Digital Operations Support",
 
-    image: "/attorney-2.jpg",
+    image: "/attorney-6.jpg",
 
     phone: "+234 703 833 6596",
 
     email: "lekan@segunsipeolu.com",
 
     bio: `
-O.A Abdulwaheed supports the firm’s litigation processes, legal documentation, operational coordination, digital systems management, and technology-driven legal support services.
+Olamilekan Abdullateef Abdulwaheed supports the firm’s litigation processes, legal documentation, operational coordination, digital systems management, and technology-driven legal support services.
 
 He also contributes to legal research, client communications, compliance operations, and digital transformation initiatives within the firm.
     `,
