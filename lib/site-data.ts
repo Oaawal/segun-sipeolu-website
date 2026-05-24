@@ -4,8 +4,7 @@ export const firm = {
   phone: "+234 803 402 1136",
   phoneAlt: "+234 909 000 1826",
   email: "sipeolu@segunsipeolu.com",
-  address:
-    "12 Hakeem Balogun Street, Central Business District (CBD), Beside Government Technical College, Alausa/Agidingbi, Ikeja, Lagos.",
+  address: "12 Hakeem Balogun Street, Central Business District (CBD), Beside Government Technical College, Alausa/Agidingbi, Ikeja, Lagos.",
   whatsapp: "2348034021136",
 };
 
@@ -17,90 +16,20 @@ export const stats = [
 ];
 
 export const services = [
-  {
-    slug: "company-corporate-affairs",
-    title: "Company & Corporate Affairs",
-    summary:
-      "The firm covers all aspects of Company Law and Corporate Affairs, advising companies, government agencies, institutions, and individuals.",
-  },
-  {
-    slug: "commercial-law-banking-taxation",
-    title: "Commercial Law, Banking & Taxation",
-    summary:
-      "We provide legal guidance on commercial transactions, banking, taxation, investment, and foreign business interests in Nigeria.",
-  },
-  {
-    slug: "recovery-of-debts",
-    title: "Recovery of Debts",
-    summary:
-      "We assist clients with structured, professional, and lawful debt recovery processes.",
-  },
-  {
-    slug: "property-law",
-    title: "Property Law",
-    summary:
-      "We advise on land transactions, title verification, perfection of interests, consent, and property documentation.",
-  },
-  {
-    slug: "intellectual-industrial-property",
-    title: "Intellectual & Industrial Property",
-    summary:
-      "We assist with trade marks, patents, copyright, industrial designs, and protection of business ideas.",
-  },
-  {
-    slug: "litigation",
-    title: "Litigation",
-    summary:
-      "We handle litigation before Magistrate Courts, High Courts, Federal High Courts, Court of Appeal, and the Supreme Court.",
-  },
-  {
-    slug: "immigration",
-    title: "Immigration",
-    summary:
-      "We assist with expatriate quotas, temporary work permits, residence permits, and immigration advisory.",
-  },
-  {
-    slug: "shipping",
-    title: "Shipping",
-    summary:
-      "We advise charterers, ship owners, brokers, operators, insurers, banks, shipyards, and traders.",
-  },
-  {
-    slug: "aviation-related-matters",
-    title: "Aviation Related Matters",
-    summary:
-      "We advise on aviation disputes, civil aviation regulation, and related commercial aviation matters.",
-  },
-  {
-    slug: "oil-gas",
-    title: "Oil & Gas",
-    summary:
-      "We advise on matters within the Nigerian and global oil and gas sector.",
-  },
-  {
-    slug: "licenses-approvals",
-    title: "Licenses & Approvals",
-    summary:
-      "We assist with regulatory approvals including NAFDAC and other statutory licensing processes.",
-  },
-  {
-    slug: "telecommunications",
-    title: "Telecommunications",
-    summary:
-      "We advise on telecommunications transactions, courier-related matters, and regulatory issues.",
-  },
-  {
-    slug: "solicitors-works",
-    title: "Solicitors Works",
-    summary:
-      "We provide responsive solicitors’ services, documentation, legal drafting, and advisory support.",
-  },
-  {
-    slug: "arbitration",
-    title: "Arbitration",
-    summary:
-      "We handle mediation, conciliation, and arbitration as commercially practical dispute resolution options.",
-  },
+  { slug: "company-corporate-affairs", title: "Company & Corporate Affairs", summary: "The firm covers all aspects of Company Law and Corporate Affairs, advising companies, government agencies, institutions, and individuals." },
+  { slug: "commercial-law-banking-taxation", title: "Commercial Law, Banking & Taxation", summary: "We provide legal guidance on commercial transactions, banking, taxation, investment, and foreign business interests in Nigeria." },
+  { slug: "recovery-of-debts", title: "Recovery of Debts", summary: "We assist clients with structured, professional, and lawful debt recovery processes." },
+  { slug: "property-law", title: "Property Law", summary: "We advise on land transactions, title verification, perfection of interests, consent, and property documentation." },
+  { slug: "intellectual-industrial-property", title: "Intellectual & Industrial Property", summary: "We assist with trade marks, patents, copyright, industrial designs, and protection of business ideas." },
+  { slug: "litigation", title: "Litigation", summary: "We handle litigation before Magistrate Courts, High Courts, Federal High Courts, Court of Appeal, and the Supreme Court." },
+  { slug: "immigration", title: "Immigration", summary: "We assist with expatriate quotas, temporary work permits, residence permits, and immigration advisory." },
+  { slug: "shipping", title: "Shipping", summary: "We advise charterers, ship owners, brokers, operators, insurers, banks, shipyards, and traders." },
+  { slug: "aviation-related-matters", title: "Aviation Related Matters", summary: "We advise on aviation disputes, civil aviation regulation, and related commercial aviation matters." },
+  { slug: "oil-gas", title: "Oil & Gas", summary: "We advise on matters within the Nigerian and global oil and gas sector." },
+  { slug: "licenses-approvals", title: "Licenses & Approvals", summary: "We assist with regulatory approvals including NAFDAC and other statutory licensing processes." },
+  { slug: "telecommunications", title: "Telecommunications", summary: "We advise on telecommunications transactions, courier-related matters, and regulatory issues." },
+  { slug: "solicitors-works", title: "Solicitors Works", summary: "We provide responsive solicitors' services, documentation, legal drafting, and advisory support." },
+  { slug: "arbitration", title: "Arbitration", summary: "We handle mediation, conciliation, and arbitration as commercially practical dispute resolution options." },
 ];
 
 export const attorneys = [
@@ -110,76 +39,148 @@ export const attorneys = [
     role: "Founder & Managing Partner",
     image: "/attorney-1.jpg",
     phone: "+234 803 402 1136",
+    whatsapp: "2348034021136",
     email: "sipeolu@segunsipeolu.com",
-    bio: "Samuel Olusegun Sipeolu leads the firm with extensive experience in litigation, commercial advisory, corporate affairs, property law, and institutional legal representation.",
+    linkedin: "https://www.linkedin.com/in/samuel-olusegun-sipeolu-14315510",
+    bio: "Samuel Olusegun Sipeolu is the Founder and Managing Partner of Segun Sipeolu & Associates. He is admitted to practice law in Nigeria, England and Wales and has over 30 years of experience in various areas of law ranging from Litigation, Arbitration, Corporate, Commercial, and Oil and Gas Law.\n\nHe holds a Master of Laws degree from Robert Gordon University, Aberdeen, Scotland. Segun is a member of the Nigerian Bar Association, Law Society of England and Wales, and International Bar Association.\n\nOn behalf of various expatriates and multinational organisations, Segun has registered and fully set up various companies in Nigeria. He is on the Board of various companies as Director or Company Secretary and advises clients on various regulatory mechanisms in relation to doing business in Nigeria.\n\nSegun has participated in various Oil and Gas contract negotiations and related matters. His interface with communities of the Niger Delta region has enhanced the optimum capabilities of clients in meeting their output production targets.",
+    memberships: ["Law Society of England and Wales", "Nigerian Bar Association", "International Bar Association"],
+    education: [
+      { school: "Robert Gordon University", degree: "Master of Laws (LLM)", description: "Obtained Masters of Law Degree (LL.M) from Robert Gordon University, Aberdeen, Scotland." },
+      { school: "The University of Law, United Kingdom", degree: "Qualifying Certificate", description: "Obtained a qualifying certificate from the University of Law, United Kingdom. Enrolled as a Solicitor of the Supreme Court of England and Wales in 2007." },
+      { school: "The Nigerian Law School", degree: "Barrister at Law", description: "Called to the Nigerian Bar in 1993." },
+      { school: "Ogun State University", degree: "Bachelor of Laws (LL.B)", description: "Obtained a degree from Ogun State University (Olabisi Onabanjo University) in 1992." },
+    ],
+    practiceAreas: ["Litigation", "Arbitration", "Corporate Law", "Commercial Law", "Oil & Gas Law"],
+    certifications: [],
+    essays: [
+      "Arbitration as a legal concept of Dispute Resolution",
+      "Dispute Resolution in Oil and Gas Contracting",
+      "Environmental degradation in Nigeria: Attribution of the Oil and Gas E&P activities – Causal effects of legislations and IOC's activities",
+      "Abuse of Tax Treaties in the Oil and Gas Industry",
+      "The Global Environmental Effect of the BP Oil Spill Disaster of 2010 on Legislation and Regulation",
+      "Contractual Risk Management in the Oil and Gas Industry",
+      "Corporate Social Responsibility of the IOCs",
+      "A Brief Appraisal of the Swedish and Irish Renewable Energy Policies",
+      "EU's Energy Policy Introduced in the Lisbon Treaty",
+      "Key National Legislations on the Environmental Regulation of the UKCS",
+      "Framework of States Development of Transboundary Offshore Oil and Gas Resources",
+    ],
+    conferences: [
+      "Whistleblowers, Secret Swiss Bank Accounts & Recovering Hidden Assets — New York",
+      "The Ins & Outs of Cybercrime: Trends and the future of Laws that address Crime in the information age — New York",
+      "Investing in Africa — New York",
+      "Administration of Estates — UK",
+      "Wills and Probate — UK",
+      "Personal Insolvency — UK",
+      "Corporate Insolvency — UK",
+      "Strategies for Success — UK",
+      "Solicitors Accounts Rules — UK",
+      "Criminal Law — UK",
+      "Civil Litigation — UK",
+      "Anti Money Laundering — UK",
+      "Legal Management Course 1 — UK",
+      "Legal Management Course 2 — UK",
+      "Immigration Law — UK",
+      "Insolvency Law — UK",
+      "Companies Act — UK",
+      "Wills, Probate and Advising the Elderly Update — UK",
+      "Civil Litigation Conference — UK",
+      "Residential Property Conference — UK",
+    ],
   },
   {
     slug: "tejiri-avwobobe",
     name: "Tejiri Avwobobe",
     role: "Senior Partner",
     image: "/attorney-2.jpg",
-    phone: "+234 909 000 1826",
+    phone: "+234 803 675 6418",
+    whatsapp: "2348036756418",
     email: "tejiri@segunsipeolu.com",
-    bio: "Tejiri Avwobobe provides legal advisory and representation across corporate, commercial, and dispute resolution matters.",
+    linkedin: "https://www.linkedin.com/in/tejiri-avwobobe-822972330",
+    bio: "Tejiri Avwobobe is a resourceful legal practitioner with strong experience in litigation, commercial practice, corporate advisory, and immigration matters.\n\nHer client-focused approach and practical legal solutions continue to make her a valuable member of the firm.",
+    memberships: ["Nigerian Bar Association"],
+    education: [
+      { school: "Nigerian Law School", degree: "Barrister at Law", description: "Called to the Nigerian Bar to practice as Barrister and Solicitor of the Supreme Court of Nigeria." },
+      { school: "Igbinedion University", degree: "Bachelor of Laws (LL.B)", description: "Obtained Bachelor of Laws Degree from Igbinedion University, Okada, Edo State." },
+    ],
+    practiceAreas: ["Litigation", "Commercial Practice", "Corporate Practice", "Immigration"],
+    certifications: [],
   },
   {
     slug: "baridura-barikor",
     name: "Baridura Barikor",
     role: "Senior Associate",
     image: "/attorney-3.jpg",
-    phone: "+234 909 000 1826",
+    phone: "+234 708 455 6714",
+    whatsapp: "2347084556714",
     email: "baridura@segunsipeolu.com",
-    bio: "Baridura Barikor supports the firm’s litigation, advisory, and client representation work.",
+    linkedin: "https://www.linkedin.com/in/baridura-barikor-52767011a",
+    bio: "Baridura Barikor provides legal support across litigation, corporate transactions, regulatory compliance, and advisory services.",
+    memberships: ["Nigerian Bar Association"],
+    education: [
+      { school: "Faculty of Law", degree: "Bachelor of Laws (LL.B)", description: "Obtained Bachelor of Laws degree with focus on litigation and corporate legal practice." },
+      { school: "Nigerian Law School", degree: "Barrister at Law (B.L)", description: "Called to the Nigerian Bar and admitted to legal practice in 2016." },
+    ],
+    practiceAreas: ["Litigation", "Corporate Law", "Regulatory Compliance"],
+    certifications: [],
   },
   {
-    slug: "mp-bamigboye",
-    name: "M.P Bamigboye",
+    slug: "mojereadura-bamigboye-pipelayo",
+    name: "Mojereadura Bamigboye Pipelayo",
     role: "Junior Associate",
     image: "/attorney-4.jpg",
-    phone: "+234 909 000 1826",
+    phone: "+234 703 110 6210",
+    whatsapp: "2347031106210",
     email: "bamigboye@segunsipeolu.com",
-    bio: "M.P Bamigboye supports the firm’s legal research, case preparation, and client advisory matters.",
+    linkedin: "https://www.linkedin.com/in/mojereadura-bamigboye-5684491b1",
+    bio: "Mojereadura Bamigboye Pipelayo supports litigation proceedings, legal drafting, legal research, and client advisory matters.",
+    memberships: ["Nigerian Bar Association"],
+    education: [
+      { school: "University of Lagos", degree: "Bachelor of Laws (LL.B)", description: "Obtained Bachelor of Laws degree from the University of Lagos in 2023." },
+      { school: "Nigerian Law School", degree: "Barrister at Law (B.L)", description: "Called to the Nigerian Bar and admitted to practice in 2025." },
+    ],
+    practiceAreas: ["Litigation", "Legal Drafting", "Corporate Support"],
+    certifications: [],
   },
   {
-    slug: "oseni-adedotun-ibrahim",
-    name: "Oseni Adedotun Ibrahim",
+    slug: "adedotun-oseni-ibrahim",
+    name: "Adedotun Oseni Ibrahim",
     role: "Junior Associate",
     image: "/attorney-5.jpg",
-    phone: "+234 909 000 1826",
+    phone: "+234 912 585 0509",
+    whatsapp: "2349125850509",
     email: "oseni@segunsipeolu.com",
-    bio: "Oseni Adedotun Ibrahim assists with litigation, legal drafting, and client support.",
+    linkedin: "https://www.linkedin.com/in/oseni-adedotun-7221a32b7",
+    bio: "Adedotun Oseni Ibrahim assists in litigation support, legal documentation, compliance, and client representation services.",
+    memberships: ["Nigerian Bar Association"],
+    education: [
+      { school: "Faculty of Law", degree: "Bachelor of Laws (LL.B)", description: "Obtained Bachelor of Laws degree with concentration in legal research and dispute resolution." },
+      { school: "Nigerian Law School", degree: "Barrister at Law (B.L)", description: "Called to the Nigerian Bar and admitted to legal practice in 2024." },
+    ],
+    practiceAreas: ["Litigation", "Compliance", "Legal Documentation"],
+    certifications: [],
   },
   {
-    slug: "oa-abdulwaheed",
+    slug: "o-a-abdulwaheed",
     name: "O.A Abdulwaheed",
     role: "Paralegal & Digital Operations Support",
     image: "/attorney-6.jpg",
     phone: "+234 909 000 1826",
+    whatsapp: "2349090001826",
     email: "abdulwaheed@segunsipeolu.com",
-    bio: "O.A Abdulwaheed supports litigation processes, legal documentation, digital operations, and technology-driven administrative support.",
+    linkedin: "https://www.linkedin.com/in/oawallaw",
+    bio: "O.A Abdulwaheed supports the firm's litigation processes, legal documentation, operational coordination, digital systems management, and technology-driven legal support services.\n\nHe also contributes to legal research, client communications, compliance operations, and digital transformation initiatives within the firm.",
+    memberships: [],
+    education: [
+      { school: "Institut Supérieur de Communication et de Gestion (ISCG)", degree: "Bachelor of Laws (LL.B)", description: "Obtained Bachelor of Laws degree in 2022 from ISCG." },
+    ],
+    practiceAreas: ["Legal Operations", "Digital Systems Support", "Legal Research", "Compliance Operations", "Cybersecurity Awareness"],
+    certifications: ["Introduction to Cybersecurity (Cisco)", "Cyber Threat Management (Cisco)", "Networking Basics (Cisco)", "Junior Cybersecurity Analyst Career Path (Cisco)", "Pre Security Learning Path (TryHackMe)"],
   },
 ];
 
 export const insights = [
-  {
-    slug: "corporate-compliance-nigeria",
-    title: "Understanding Corporate Compliance in Nigeria",
-    category: "Corporate Law",
-    summary:
-      "A practical overview of why Nigerian businesses need proper corporate structure and compliance discipline.",
-  },
-  {
-    slug: "commercial-litigation-considerations",
-    title: "Key Considerations in Commercial Litigation",
-    category: "Litigation",
-    summary:
-      "Important points businesses should consider before commencing or defending commercial disputes.",
-  },
-  {
-    slug: "property-due-diligence-lagos",
-    title: "Property Acquisition and Legal Due Diligence",
-    category: "Property Law",
-    summary:
-      "Why proper title verification and documentation remain critical in Lagos property transactions.",
-  },
+  { slug: "corporate-compliance-nigeria", title: "Understanding Corporate Compliance in Nigeria", category: "Corporate Law", summary: "A practical overview of why Nigerian businesses need proper corporate structure and compliance discipline." },
+  { slug: "commercial-litigation-considerations", title: "Key Considerations in Commercial Litigation", category: "Litigation", summary: "Important points businesses should consider before commencing or defending commercial disputes." },
+  { slug: "property-due-diligence-lagos", title: "Property Acquisition and Legal Due Diligence", category: "Property Law", summary: "Why proper title verification and documentation remain critical in Lagos property transactions." },
 ];

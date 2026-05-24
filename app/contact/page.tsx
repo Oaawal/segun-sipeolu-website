@@ -63,7 +63,7 @@ export default function ContactPage() {
               {/* Google Map embed */}
               <div className="mt-10 overflow-hidden border border-[#E8DED3]">
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3963.3!2d3.3417!3d6.6018!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNsKwMzYnMDYuNSJOIDPCsDIwJzMwLjEiRQ!5e0!3m2!1sen!2sng!4v1"
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3963.1894813658932!2d3.3506745746312387!3d6.623370193370878!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x103b93c432606625%3A0x4164804b918070f8!2sSegun%20Sipeolu%20and%20Associates!5e0!3m2!1sen!2sng!4v1779665186918!5m2!1sen!2sng"
                   width="100%"
                   height="240"
                   style={{ border: 0 }}
