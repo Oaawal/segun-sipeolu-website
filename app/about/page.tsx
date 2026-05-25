@@ -108,8 +108,8 @@ export default function AboutPage() {
                 { title: "Experienced", body: "A rich blend of young and experienced professionals determined to deliver exceptional results since 1993." },
                 { title: "Client-Friendly", body: "Shared empathy underpins our commitment to bespoke solutions and robust client relationships." },
                 { title: "Result-Oriented", body: "We deliver top-drawer creative legal solutions that surpass the expectations of our teeming clients." },
-              ].map((v) => (
-                <div key={v.title} className="border-t-2 border-[#6D1F3B] pt-8">
+              ].map((v, i) => (
+                <div key={v.title} className={`pt-8 border-t-2 ${i % 2 === 0 ? 'border-[#6D1F3B]' : 'border-[#1A5A3C]'}`}>
                   <h3 className="font-serif text-2xl text-[#2B0D17]">{v.title}</h3>
                   <p className="mt-4 leading-relaxed text-gray-600">{v.body}</p>
                 </div>

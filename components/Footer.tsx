@@ -3,7 +3,7 @@ import { firm, services } from "@/lib/site-data";
 
 export default function Footer() {
   return (
-    <footer className="bg-[#1A1114] text-white">
+    <footer className="bg-[#1A1114] text-white border-t-4 border-[#1A5A3C]">
       <div className="mx-auto grid max-w-7xl gap-12 px-6 py-20 lg:grid-cols-4">
         <div>
           <h3 className="font-serif text-3xl">Segun Sipeolu</h3>
