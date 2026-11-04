@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>SOS&amp;A Portal</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+  :root { --maroon:#6D1F3B; --dark:#2B0D17; --gold:#D4B06A; --cream:#F7F4F1; --line:#E7E1DA; --muted:#6b6b6b; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 "Segoe UI", system-ui, sans-serif; color:#1a1a1a; background:var(--cream); }
+  header { background:var(--dark); color:#fff; padding:14px 16px; border-bottom:3px solid var(--gold); }
+  header b { font-family: Georgia, serif; font-size:15px; display:block; }
+  header span { font-size:11px; color:var(--gold); letter-spacing:.4px; }
+  main { padding:14px 16px 24px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  label { display:block; font-size:12px; font-weight:600; margin:10px 0 4px; color:#3b3b3b; }
+  input, select, textarea { width:100%; font:inherit; padding:8px 10px; border:1px solid #d6cfc7; border-radius:8px; background:#fff; }
+  textarea { min-height:56px; resize:vertical; }
+  button { font:600 14px "Segoe UI", sans-serif; border:0; border-radius:8px; padding:10px 14px; cursor:pointer; width:100%; margin-top:12px; }
+  .primary { background:var(--maroon); color:#fff; }
+  .ghost { background:#fff; color:var(--maroon); border:1px solid #d6cfc7; }
+  .link { background:none; color:var(--muted); padding:4px; font-weight:500; width:auto; margin:0; text-decoration:underline; }
+  .muted { color:var(--muted); font-size:12px; }
+  .ok { background:#e8f3ec; color:#1A5A3C; border-radius:8px; padding:10px; margin-top:10px; font-size:13px; }
+  .err { background:#fdecea; color:#8a1c14; border-radius:8px; padding:10px; margin-top:10px; font-size:13px; }
+  .linked { border-left:4px solid var(--gold); }
+  .hidden { display:none; }
+  .list { max-height:180px; overflow:auto; border:1px solid var(--line); border-radius:8px; margin-top:6px; }
+  .item { padding:8px 10px; border-top:1px solid var(--line); cursor:pointer; }
+  .item:first-child { border-top:0; }
+  .item:hover, .item.sel { background:#f6ebd3; }
+  .item b { display:block; font-size:13px; }
+  .item small { color:var(--muted); }
+</style>
+</head>
+<body>
+<header><b>Segun Sipeolu &amp; Associates</b><span>Save to the Practice Portal</span></header>
+<main>
+  <section id="connect" class="card hidden">
+    <b>Connect Word to the portal</b>
+    <p class="muted">In the portal, open <i>Account → Save from Microsoft Word</i>, create a connection code and paste it here. Do this once on each computer.</p>
+    <label for="code">Connection code</label>
+    <input id="code" autocomplete="off" placeholder="ssa_…">
+    <button class="primary" id="connectBtn">Connect</button>
+    <div id="connectMsg"></div>
+  </section>
+
+  <section id="app" class="hidden">
+    <p class="muted" id="who"></p>
+
+    <div id="linkedCard" class="card linked hidden">
+      <b id="linkedTitle"></b>
+      <div class="muted" id="linkedMatter"></div>
+      <label for="noteLinked">What changed (optional)</label>
+      <textarea id="noteLinked" placeholder="e.g. Incorporated client's comments on clause 7"></textarea>
+      <button class="primary" id="saveVersion">Save as a new version</button>
+      <button class="link" id="unlink">Save somewhere else instead</button>
+    </div>
+
+    <div id="newCard" class="card hidden">
+      <b>Save this document to a matter</b>
+      <label for="search">Find the matter</label>
+      <input id="search" placeholder="Name, matter or suit number">
+      <div class="list" id="matters"></div>
+      <div id="docPick" class="hidden">
+        <label for="series">Save as</label>
+        <select id="series"></select>
+      </div>
+      <label for="title">Document title</label>
+      <input id="title" placeholder="e.g. Statement of claim (draft)">
+      <label for="category">Category</label>
+      <select id="category">
+        <option value="pleading">Pleading / process</option><option value="correspondence">Correspondence</option>
+        <option value="contract">Contract / agreement</option><option value="opinion">Legal opinion / memo</option>
+        <option value="court_order">Court order / judgment</option><option value="evidence">Evidence / exhibit</option>
+        <option value="title">Title document</option><option value="other" selected>Other</option>
+      </select>
+      <label for="note">Note (optional)</label>
+      <textarea id="note"></textarea>
+      <button class="primary" id="saveNew">Save to portal</button>
+    </div>
+
+    <div id="msg"></div>
+    <p class="muted">Saved documents are encrypted, fingerprinted and recorded in the matter's history. <button class="link" id="disconnect">Disconnect</button></p>
+  </section>
+</main>
+<script>
+(function () {
+  var API = window.location.origin + "/portal/api/word";
+  var KEY = "ssa_portal_code";
+  var chosen = null;
+  var $ = function (id) { return document.getElementById(id); };
+  function show(id, on) { $(id).classList.toggle("hidden", !on); }
+  function message(el, text, ok) { $(el).innerHTML = text ? '<div class="' + (ok ? "ok" : "err") + '"></div>' : ""; if (text) $(el).firstChild.textContent = text; }
+  function code() { try { return localStorage.getItem(KEY) || ""; } catch (e) { return ""; } }
+  function call(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({ Authorization: "Bearer " + code() }, opts.headers || {});
+    return fetch(API + path, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (b) { if (!r.ok) throw new Error(b.error || "Request failed (" + r.status + ")"); return b; });
+    });
+  }
+  function setting(k, v) {
+    var s = Office.context.document.settings;
+    if (v === undefined) return s.get(k);
+    if (v === null) s.remove(k); else s.set(k, v);
+    s.saveAsync();
+  }
+
+  // Read the whole open document as .docx bytes
+  function documentBytes() {
+    return new Promise(function (resolve, reject) {
+      Office.context.document.getFileAsync(Office.FileType.Compressed, { sliceSize: 4194304 }, function (res) {
+        if (res.status !== Office.AsyncResultStatus.Succeeded) return reject(new Error(res.error.message));
+        var file = res.value, parts = [], got = 0;
+        var next = function (i) {
+          file.getSliceAsync(i, function (s) {
+            if (s.status !== Office.AsyncResultStatus.Succeeded) { file.closeAsync(); return reject(new Error(s.error.message)); }
+            parts[i] = new Uint8Array(s.value.data); got++;
+            if (got === file.sliceCount) { file.closeAsync(); resolve(new Blob(parts, { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" })); }
+            else next(i + 1);
+          });
+        };
+        next(0);
+      });
+    });
+  }
+
+  function save(fields, btn) {
+    btn.disabled = true; var label = btn.textContent; btn.textContent = "Saving…"; message("msg", "");
+    return documentBytes().then(function (blob) {
+      var fd = new FormData();
+      fd.append("file", blob, "document.docx");
+      Object.keys(fields).forEach(function (k) { if (fields[k]) fd.append(k, fields[k]); });
+      return call("/save", { method: "POST", body: fd });
+    }).then(function (r) {
+      setting("ssa_matter_id", fields.matter_id); setting("ssa_series_id", r.series_id);
+      setting("ssa_title", r.title); setting("ssa_matter_label", fields.matter_label || setting("ssa_matter_label"));
+      message("msg", "Saved as version " + r.version + ". Fingerprint " + r.sha256.slice(0, 12) + "…", true);
+      render();
+    }).catch(function (e) { message("msg", e.message, false); })
+      .then(function () { btn.disabled = false; btn.textContent = label; });
+  }
+
+  function loadMatters(q) {
+    call("/matters?q=" + encodeURIComponent(q || "")).then(function (rows) {
+      $("matters").innerHTML = "";
+      if (!rows.length) { $("matters").innerHTML = '<div class="item"><small>No open matters found.</small></div>'; return; }
+      rows.forEach(function (m) {
+        var d = document.createElement("div"); d.className = "item";
+        var b = document.createElement("b"); b.textContent = m.title; var s = document.createElement("small"); s.textContent = m.number + " · " + m.client;
+        d.appendChild(b); d.appendChild(s);
+        d.onclick = function () {
+          chosen = m;
+          Array.prototype.forEach.call($("matters").children, function (c) { c.classList.remove("sel"); }); d.classList.add("sel");
+          call("/documents?matter=" + m.id).then(function (docs) {
+            var sel = $("series"); sel.innerHTML = '<option value="">A new document</option>';
+            docs.forEach(function (x) { var o = document.createElement("option"); o.value = x.series_id; o.textContent = "New version of: " + x.title + " (v" + x.version + ")"; sel.appendChild(o); });
+            show("docPick", true);
+          });
+        };
+        $("matters").appendChild(d);
+      });
+    }).catch(function (e) { message("msg", e.message, false); if (/connection code/.test(e.message)) disconnect(); });
+  }
+
+  function render() {
+    if (!code()) { show("connect", true); show("app", false); return; }
+    show("connect", false); show("app", true);
+    call("/me").then(function (me) { $("who").textContent = "Signed in as " + me.name + " (" + me.role + ")"; }).catch(function (e) { message("connectMsg", e.message, false); disconnect(); });
+    var linked = setting("ssa_series_id");
+    show("linkedCard", !!linked); show("newCard", !linked);
+    if (linked) { $("linkedTitle").textContent = setting("ssa_title") || "Linked document"; $("linkedMatter").textContent = setting("ssa_matter_label") || ""; }
+    else loadMatters("");
+  }
+  function disconnect() { try { localStorage.removeItem(KEY); } catch (e) {} render(); }
+
+  Office.onReady(function () {
+    $("connectBtn").onclick = function () {
+      var c = $("code").value.trim();
+      if (!/^ssa_/.test(c)) return message("connectMsg", "That does not look like a connection code.", false);
+      try { localStorage.setItem(KEY, c); } catch (e) {}
+      call("/me").then(function () { message("connectMsg", ""); render(); }).catch(function (e) { try { localStorage.removeItem(KEY); } catch (x) {} message("connectMsg", e.message, false); });
+    };
+    var t; $("search").oninput = function () { clearTimeout(t); var v = this.value; t = setTimeout(function () { loadMatters(v); }, 250); };
+    $("saveNew").onclick = function () {
+      if (!chosen) return message("msg", "Choose a matter first.", false);
+      save({ matter_id: chosen.id, matter_label: chosen.number + " · " + chosen.title, series_id: $("series").value, title: $("title").value.trim(), category: $("category").value, note: $("note").value.trim() }, this);
+    };
+    $("saveVersion").onclick = function () {
+      save({ matter_id: setting("ssa_matter_id"), series_id: setting("ssa_series_id"), title: setting("ssa_title"), note: $("noteLinked").value.trim() }, this);
+    };
+    $("unlink").onclick = function () { setting("ssa_series_id", null); setting("ssa_matter_id", null); render(); };
+    $("disconnect").onclick = disconnect;
+    render();
+  });
+})();
+</script>
+</body>
+</html>

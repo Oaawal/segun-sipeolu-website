@@ -11,7 +11,7 @@ const STATUS_TONE: Record<string, Tone> = { scheduled: "blue", held: "green", ad
 
 export function HearingForm({ matter, staff, back }: { matter: { id: string; court: string | null; judge: string | null; suit_number: string | null }; staff: Staff; back: string }) {
   return (
-    <form action={addHearing} className="grid gap-4 sm:grid-cols-2">
+    <form action={addHearing} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <input type="hidden" name="matter_id" value={matter.id} />
       <input type="hidden" name="back" value={back} />
       <Field label="Date" name="sitting_on" type="date" required defaultValue={addDays(today(), 7)} />
@@ -32,7 +32,7 @@ export function OutcomeForm({ h, staff, back }: { h: HearingRow; staff: Staff; b
   return (
     <details className="group mt-3 rounded-xl border border-stone-200 bg-cream/40 open:bg-white">
       <summary className="cursor-pointer list-none px-4 py-2.5 text-sm font-semibold text-maroon [&::-webkit-details-marker]:hidden">Record what happened →</summary>
-      <form action={recordOutcome} className="grid gap-4 border-t border-stone-200 p-4 sm:grid-cols-2">
+      <form action={recordOutcome} className="grid grid-cols-1 gap-4 border-t border-stone-200 p-4 sm:grid-cols-2">
         <input type="hidden" name="hearing_id" value={h.id} />
         <input type="hidden" name="back" value={back} />
         <Select label="Result" name="status" options={Object.entries(HEARING_STATUS).filter(([k]) => k !== "scheduled")} defaultValue="adjourned" />

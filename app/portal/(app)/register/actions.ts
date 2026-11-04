@@ -1,6 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { alertServed } from "@/lib/portal/reminders";
 import { one, tx, nextNumber } from "@/lib/portal/db";
 import { audit } from "@/lib/portal/audit";
 import { requireUser } from "@/lib/portal/auth";
@@ -8,7 +10,7 @@ import { can, canSeeMatter } from "@/lib/portal/permissions";
 import { matterFacts } from "@/lib/portal/guards";
 import { loadService } from "@/lib/portal/data";
 import { addDays, dateField, fmtDay, isUuid, oneOf, str, today } from "@/lib/portal/format";
-import { FIRM, SERVICE_KINDS, SERVICE_METHODS } from "@/lib/portal/vocab";
+import { SERVICE_KINDS, SERVICE_METHODS } from "@/lib/portal/vocab";
 
 async function handler(v: FormDataEntryValue | null) {
   const id = String(v || "");
@@ -64,6 +66,8 @@ export async function createEntry(fd: FormData) {
     }
     await audit({ userId: u.id, actor: u.email, action: "service.logged", entityType: "service", entityId: id, matterId, detail: { number, direction, kind, due } }, t);
   });
+  // Tell the responsible lawyer straight away, by email and SMS
+  if (direction === "in" && handledBy) after(() => alertServed(id));
   redirect(`/portal/register/${id}?msg=created`);
 }
 

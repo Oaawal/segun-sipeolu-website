@@ -43,3 +43,6 @@ next-env.d.ts
 # Staff portal: local database and uploaded files (never commit client data)
 /data/
 .env*.local
+
+# The settings template is safe to share (no real values)
+!.env.example

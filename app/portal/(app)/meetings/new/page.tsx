@@ -15,9 +15,9 @@ export default async function NewMeeting({ searchParams }: { searchParams: Promi
     <>
       <PageHeader title="New meeting" back={{ href: "/portal/meetings", label: "Meetings" }} />
       <Flash msg={sp.msg} />
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card>
-          <form action={createMeeting} className="grid gap-4 sm:grid-cols-2">
+          <form action={createMeeting} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Title" name="title" required className="sm:col-span-2" placeholder="e.g. Strategy meeting with Mr Adeyemi" />
             <Field label="Date" name="held_on" type="date" defaultValue={today()} />
             <Select label="Type" name="kind" options={MEETING_KINDS} defaultValue="client" />

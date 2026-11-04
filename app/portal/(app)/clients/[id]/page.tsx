@@ -34,7 +34,7 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
         actions={can(u, "matters.create") && <Link href={`/portal/matters/new?client=${c.id}`} className={btn.primary}><Plus className="h-4 w-4" />New matter</Link>}
       />
       <Flash msg={sp.msg} />
-      <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <Card title="Details"><ClientForm c={c} disabled={!can(u, "clients.edit")} /></Card>
         <Card title="Matters" pad={false}>
           {matters.length === 0 ? <Empty icon={<Briefcase className="h-8 w-8" />} title="No matters yet" /> : matters.map((m) => {

@@ -42,7 +42,7 @@ export default async function Today({ searchParams }: { searchParams: Promise<{ 
         <Stat label={u.role === "front_desk" ? "Sittings this week" : "My open matters"} value={u.role === "front_desk" ? d.sittings.length : d.counts?.my_matters ?? 0} note={u.role === "front_desk" ? "Next 7 days" : `${d.counts?.open_matters ?? 0} open you can access`} href={u.role === "front_desk" ? "/portal/diary" : "/portal/matters?mine=1"} icon={u.role === "front_desk" ? <CalendarDays className="h-4 w-4" /> : <Briefcase className="h-4 w-4" />} tone="gold" />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="space-y-6">
           <Card title="Court this week" action={<Link href="/portal/diary" className="text-sm font-semibold text-maroon">Full diary</Link>} pad={false}>
             {d.sittings.length === 0 ? (

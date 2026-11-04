@@ -77,7 +77,7 @@ export default async function MatterPage({ params, searchParams }: { params: Pro
       listService(u, { matterId: m.id, status: "open" }),
     ]);
     body = (
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="space-y-6">
           {next ? (
             <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-gradient-to-r from-maroon-dark to-maroon p-5 text-white">
@@ -126,7 +126,7 @@ export default async function MatterPage({ params, searchParams }: { params: Pro
   if (tab === "diary") {
     const canEdit = can(u, "diary.edit");
     body = (
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Card title="Sittings" pad={false}>
           {hearings.length === 0 ? <Empty icon={<CalendarDays className="h-8 w-8" />} title="No court dates yet" /> : hearings.map((h) => <HearingCard key={h.id} h={h} staff={staff} back={`${base}?tab=diary`} canEdit={canEdit} />)}
         </Card>
@@ -138,7 +138,7 @@ export default async function MatterPage({ params, searchParams }: { params: Pro
   if (tab === "documents") {
     const docs = await listDocuments("matter", m.id);
     body = (
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Card title={`Documents (${docs.length})`} pad={false}><DocumentList docs={docs} ownerType="matter" ownerId={m.id} canRemove canUpload /></Card>
         <div className="space-y-6">
           <Card title="Upload"><UploadForm ownerType="matter" ownerId={m.id} /></Card>
@@ -151,7 +151,7 @@ export default async function MatterPage({ params, searchParams }: { params: Pro
   if (tab === "tasks") {
     const tasks = await listTasks(u, { view: "all", matterId: m.id });
     body = (
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Card title="Tasks" pad={false}><TaskList tasks={tasks} back={`${base}?tab=tasks`} showMatter={false} /></Card>
         <Card title="Add a task"><TaskForm back={`${base}?tab=tasks`} matterId={m.id} staff={team.map((t) => ({ id: t.user_id, full_name: t.full_name, role: t.user_role }))} me={u.id} canAssign={can(u, "tasks.assign_others")} /></Card>
       </div>
@@ -161,7 +161,7 @@ export default async function MatterPage({ params, searchParams }: { params: Pro
   if (tab === "notes") {
     const notes = await q<{ id: string; kind: string; body: string; created_at: string; full_name: string | null }>("SELECT n.id, n.kind, n.body, n.created_at, u.full_name FROM matter_notes n LEFT JOIN users u ON u.id = n.created_by WHERE n.matter_id = $1 ORDER BY n.created_at DESC", [m.id]);
     body = (
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Card title="File notes and history">
           <ol className="space-y-5">{notes.map((n) => (
             <li key={n.id} className="flex gap-3">
@@ -211,7 +211,7 @@ export default async function MatterPage({ params, searchParams }: { params: Pro
   if (tab === "parties") {
     const parties = await q<{ id: string; name: string; role: string; contact: string | null; notes: string | null }>("SELECT id, name, role, contact, notes FROM parties WHERE matter_id = $1 ORDER BY created_at", [m.id]);
     body = (
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Card title="Parties" pad={false}>
           <Row><Avatar name={m.client_name} size="sm" /><div className="flex-1"><div className="font-medium">{m.client_name}</div><div className="text-xs text-stone-500">Our client</div></div></Row>
           {parties.map((p) => (
@@ -240,7 +240,7 @@ export default async function MatterPage({ params, searchParams }: { params: Pro
     const manage = can(u, "matters.manage_team");
     const candidates = staff.filter((s) => s.role !== "front_desk" && !team.some((t) => t.user_id === s.id));
     body = (
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Card title="Matter team" pad={false}>
           {team.map((t) => (
             <Row key={t.user_id}>
@@ -271,7 +271,7 @@ export default async function MatterPage({ params, searchParams }: { params: Pro
     const partners = staff.filter((s) => s.role === "admin" || s.role === "partner");
     body = (
       <Card>
-        <form action={updateMatter} className="grid gap-4 md:grid-cols-2">
+        <form action={updateMatter} className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <input type="hidden" name="id" value={m.id} />
           <Field label="Title" name="title" required defaultValue={m.title} className="md:col-span-2" />
           <Select label="Practice area" name="practice_area" options={PRACTICE_AREAS.map((p) => [p, p])} defaultValue={m.practice_area} />

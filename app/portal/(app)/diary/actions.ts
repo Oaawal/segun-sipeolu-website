@@ -5,7 +5,7 @@ import { one, tx } from "@/lib/portal/db";
 import { audit } from "@/lib/portal/audit";
 import { requireUser } from "@/lib/portal/auth";
 import { requireDiaryAccess } from "@/lib/portal/guards";
-import { addDays, dateField, fmtDay, isUuid, oneOf, str } from "@/lib/portal/format";
+import { addDays, dateField, fmtDay, isUuid, oneOf, str, today } from "@/lib/portal/format";
 import { HEARING_STATUS } from "@/lib/portal/vocab";
 
 function back(fd: FormData, fallback: string) {
@@ -69,7 +69,7 @@ export async function recordOutcome(fd: FormData) {
       );
       line += ` Next date: ${fmtDay(nextDay)} for ${nextBusiness}.`;
       if (fd.get("prep_task") === "1") {
-        const prepOn = addDays(nextDay, -3);
+        const prepOn = addDays(nextDay, -3) < today() ? today() : addDays(nextDay, -3);
         await t.query(
           "INSERT INTO tasks (id, title, matter_id, assigned_to, due_on, kind, priority, source, created_by) VALUES ($1,$2,$3,$4,$5,'deadline','high',$6,$7)",
           [crypto.randomUUID(), `Prepare for ${nextBusiness.toLowerCase()} on ${fmtDay(nextDay)} (${m.number})`, h.matter_id, (await staffId(fd.get("next_appearing"))) || h.appearing || u.id, prepOn, `hearing:${nid}`, u.id],

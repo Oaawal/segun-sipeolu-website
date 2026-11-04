@@ -34,6 +34,7 @@ export default async function Diary({ searchParams }: { searchParams: Promise<{ 
           <div className="flex gap-2">
             <Link className={btn.small} href={`/portal/diary?view=cause&day=${addDays(day, -1)}`}><ChevronLeft className="h-3.5 w-3.5" />Previous day</Link>
             <Link className={btn.small} href={`/portal/diary?view=cause&day=${addDays(day, 1)}`}>Next day<ChevronRight className="h-3.5 w-3.5" /></Link>
+            <a className={btn.small} href={`/portal/api/export/cause-list?day=${day}`}>Word (.docx)</a>
           </div>
         </div>
         <div className="rounded-2xl border border-stone-200 bg-white p-8 print:border-0 print:p-0">

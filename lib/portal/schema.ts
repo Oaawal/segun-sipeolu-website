@@ -317,4 +317,52 @@ CREATE TABLE meetings (
 CREATE INDEX meetings_matter ON meetings(matter_id);
 `,
   },
+  {
+    id: "0002_notifications_and_word",
+    sql: /* sql */ `
+-- ── Reminders by email and SMS ──────────────────────────────────
+ALTER TABLE users ADD COLUMN notify_email BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE users ADD COLUMN notify_sms BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- Every message sent (or attempted). dedupe_key stops the same reminder
+-- going out twice, e.g. digest:2026-11-05 or service:<id>.
+CREATE TABLE notifications (
+  id           UUID PRIMARY KEY,
+  user_id      UUID NOT NULL REFERENCES users(id),
+  channel      TEXT NOT NULL CHECK (channel IN ('email','sms')),
+  kind         TEXT NOT NULL,                -- digest, court_tomorrow, deadline, served, assigned, test
+  dedupe_key   TEXT NOT NULL,
+  recipient    TEXT NOT NULL,
+  subject      TEXT,
+  body         TEXT NOT NULL,
+  status       TEXT NOT NULL CHECK (status IN ('sent','failed','skipped')),
+  provider_ref TEXT,
+  error        TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX notifications_once ON notifications(user_id, channel, dedupe_key) WHERE status = 'sent';
+CREATE INDEX notifications_recent ON notifications(created_at);
+
+CREATE TABLE job_runs (
+  job       TEXT NOT NULL,
+  run_date  DATE NOT NULL,
+  ran_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  detail    TEXT,
+  PRIMARY KEY (job, run_date)
+);
+
+-- ── Personal access tokens (the Word add-in) ────────────────────
+-- Shown once when created; only a hash is stored. Revocable at any time.
+CREATE TABLE api_tokens (
+  token_hash    TEXT PRIMARY KEY,
+  user_id       UUID NOT NULL REFERENCES users(id),
+  name          TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at    TIMESTAMPTZ NOT NULL,
+  last_used_at  TIMESTAMPTZ,
+  revoked_at    TIMESTAMPTZ
+);
+CREATE INDEX api_tokens_user ON api_tokens(user_id);
+`,
+  },
 ];

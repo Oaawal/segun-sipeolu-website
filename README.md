@@ -34,3 +34,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Staff practice portal
+
+The site includes a private staff portal at `/portal`: matters, conflict
+checks, court diary, service register, tasks, encrypted documents, meeting
+transcription with AI minutes, Word export and a Word add-in, and email/SMS
+reminders, with role-based access and a tamper-evident audit trail.
+
+- Setup, hosting, security and handover: [`docs/portal/HANDOVER.md`](docs/portal/HANDOVER.md)
+- Settings: [`.env.example`](.env.example)
+- Locally: `npm run dev`, then open http://localhost:3000/portal (data is kept in `./data`).

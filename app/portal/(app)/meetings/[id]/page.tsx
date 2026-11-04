@@ -66,7 +66,7 @@ export default async function MeetingPage({ params, searchParams }: { params: Pr
       )}
 
       {!m.transcript && !busy && (
-        <div className="mb-6 grid gap-6 lg:grid-cols-2">
+        <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div>
             <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wider text-stone-500">Record or upload audio</h2>
             {!transcriptionEnabled() ? <Note tone="info">Audio transcription is not switched on yet. The administrator adds a speech-to-text key (DEEPGRAM_API_KEY) on the server. Meanwhile, paste or upload a transcript.</Note>
@@ -84,13 +84,13 @@ export default async function MeetingPage({ params, searchParams }: { params: Pr
       )}
 
       {minutes && (
-        <div className="mb-6 grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+        <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
           <div className="space-y-6">
             <Card title="Summary" action={minutes.reviewed_by ? <Badge tone="green"><CheckCircle2 className="h-3 w-3" />Checked by {minutes.reviewed_by}</Badge> : <Badge tone="amber">AI draft: not yet checked</Badge>}>
               <p className="whitespace-pre-line leading-relaxed text-stone-800">{minutes.summary}</p>
               {minutes.attendees.length > 0 && <p className="mt-3 text-sm text-stone-500">Present: {minutes.attendees.join(", ")}</p>}
             </Card>
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <Card title="Decisions"><List items={minutes.decisions} empty="No decisions recorded." /></Card>
               <Card title="Key points"><List items={minutes.key_points} empty="None." /></Card>
             </div>
@@ -104,7 +104,7 @@ export default async function MeetingPage({ params, searchParams }: { params: Pr
                         <input type="checkbox" name="item" value={i} defaultChecked className="mt-0.5 h-4 w-4 accent-maroon" />
                         <span>{a.task} {a.priority === "high" && <Badge tone="red">High</Badge>}<span className="block text-xs font-normal text-stone-500">Named owner: {a.owner || "not stated"}</span></span>
                       </label>
-                      <div className="mt-2 grid gap-2 pl-6 sm:grid-cols-2">
+                      <div className="mt-2 grid grid-cols-1 gap-2 pl-6 sm:grid-cols-2">
                         <select name={`owner_${i}`} defaultValue={guess(a.owner)} className={inputCls} aria-label="Assign to">{staff.filter((s) => s.role !== "front_desk").map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}</select>
                         <input type="date" name={`due_${i}`} defaultValue={a.due_date || ""} className={inputCls} aria-label="Due date" />
                       </div>
@@ -150,10 +150,10 @@ export default async function MeetingPage({ params, searchParams }: { params: Pr
       {m.transcript && !minutesEnabled() && <div className="mb-6"><Note tone="info">AI minutes are not switched on yet: the administrator adds an Anthropic API key (ANTHROPIC_API_KEY) on the server.</Note></div>}
 
       {m.transcript && (
-        <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
           <Card title="Transcript">
             <details>
-              <summary className="cursor-pointer text-sm font-semibold text-maroon">Show the full transcript ({Math.round(m.transcript.length / 1000)}k characters, {m.transcript_source})</summary>
+              <summary className="cursor-pointer text-sm font-semibold text-maroon">Show the full transcript ({m.transcript.split(/\s+/).length.toLocaleString()} words, from {m.transcript_source})</summary>
               <div className="mt-4 max-h-[70vh] overflow-y-auto whitespace-pre-line rounded-lg bg-cream/60 p-4 text-sm leading-relaxed text-stone-800">{m.transcript}</div>
             </details>
           </Card>

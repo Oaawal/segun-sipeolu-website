@@ -7,7 +7,7 @@ type C = { id?: string; kind?: string; name?: string; rc_number?: string | null;
 export function ClientForm({ c = {}, next, disabled }: { c?: C; next?: string; disabled?: boolean }) {
   return (
     <form action={saveClient}>
-      <fieldset disabled={disabled} className="grid gap-4 sm:grid-cols-2">
+      <fieldset disabled={disabled} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {c.id && <input type="hidden" name="id" value={c.id} />}
         {next && <input type="hidden" name="next" value={next} />}
         <Field label="Name (person or organisation)" name="name" required defaultValue={c.name} className="sm:col-span-2" />

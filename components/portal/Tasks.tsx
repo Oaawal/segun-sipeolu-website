@@ -37,7 +37,7 @@ export function TaskList({ tasks, back, showMatter = true }: { tasks: TaskRow[];
 
 export function TaskForm({ back, matterId, matters, staff, me, canAssign }: { back: string; matterId?: string; matters?: { id: string; number: string; title: string }[]; staff: { id: string; full_name: string; role: string }[]; me: string; canAssign: boolean }) {
   return (
-    <form action={createTask} className="grid gap-4 sm:grid-cols-2">
+    <form action={createTask} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <input type="hidden" name="back" value={back} />
       {matterId && <input type="hidden" name="matter_id" value={matterId} />}
       <Field label="What needs doing" name="title" required className="sm:col-span-2" placeholder="e.g. File reply to statement of defence" />

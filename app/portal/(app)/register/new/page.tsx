@@ -20,9 +20,9 @@ export default async function NewEntry({ searchParams }: { searchParams: Promise
     <>
       <PageHeader title={dir === "in" ? "Document served on us" : "Document we served"} sub={dir === "in" ? "Log it as it arrives: who brought it, how, when, and who signed for it." : "Record service with its proof, so it can be proved later."} back={{ href: "/portal/register", label: "Service register" }} />
       <Flash msg={sp.msg} />
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card>
-          <form action={createEntry} className="grid gap-4 sm:grid-cols-2">
+          <form action={createEntry} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <input type="hidden" name="direction" value={dir} />
             <Select label="What it is" name="kind" options={SERVICE_KINDS} defaultValue={dir === "in" ? "hearing_notice" : "letter"} />
             <Field label="Title" name="title" required placeholder={dir === "in" ? "e.g. Statement of defence, Suit ID/1234/2026" : "e.g. Letter of demand to Lagos Homes Ltd"} />
@@ -41,7 +41,7 @@ export default async function NewEntry({ searchParams }: { searchParams: Promise
                 <Field label="…or suit / matter number" name="reference" placeholder="Links automatically if it matches" />
               </>
             )}
-            <div className="sm:col-span-2 grid gap-4 rounded-xl border border-gold/40 bg-gold/10 p-4 sm:grid-cols-3">
+            <div className="sm:col-span-2 grid grid-cols-1 gap-4 rounded-xl border border-gold/40 bg-gold/10 p-4 sm:grid-cols-3">
               <Select label="Response due in" name="due_days" options={DEADLINE_PRESETS.map((p) => [String(p.days), p.label])} blank="No deadline" />
               <Field label="…or on this date" name="response_due" type="date" />
               <Select label="Lawyer responsible" name="handled_by" options={lawyers.map((s) => [s.id, s.full_name])} blank="Matter lead (automatic)" />

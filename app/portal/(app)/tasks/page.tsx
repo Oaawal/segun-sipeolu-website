@@ -20,7 +20,7 @@ export default async function Tasks({ searchParams }: { searchParams: Promise<{ 
       <PageHeader title="Tasks & deadlines" sub="Tasks from the court diary, the service register and meeting minutes all arrive here" />
       <Flash msg={sp.msg} />
       <Chips active={view} items={VIEWS.map((v) => ({ ...v, href: `/portal/tasks?view=${v.key}` }))} />
-      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Card pad={false}><TaskList tasks={tasks} back={`/portal/tasks?view=${view}`} /></Card>
         <Card title="Add a task"><TaskForm back={`/portal/tasks?view=${view}`} matters={matters} staff={staff} me={u.id} canAssign={can(u, "tasks.assign_others")} /></Card>
       </div>

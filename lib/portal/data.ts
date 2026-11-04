@@ -301,3 +301,45 @@ export async function dashboard(u: Actor) {
   ]);
   return { sittings, myTasks, serviceDue, recent: recent.slice(0, 6), meetings: meetings.filter((m) => m.status !== "ready").slice(0, 5), counts };
 }
+
+// ── Search everything (only what the person may see) ──────────────
+export interface SearchResults {
+  matters: MatterRow[];
+  clients: { id: string; name: string; kind: string; email: string | null }[];
+  documents: { id: string; title: string; file_name: string; owner_type: string; owner_id: string; matter_number: string | null; uploaded_at: string }[];
+  service: ServiceRow[];
+  hearings: HearingRow[];
+  meetings: MeetingRow[];
+}
+
+export async function searchEverything(u: Actor, term: string): Promise<SearchResults> {
+  const like = `%${term.replace(/[%_\\]/g, (c) => "\\" + c)}%`;
+  const docsAccess = `(
+    (d.owner_type = 'matter' AND ${matterAccessSql(u)})
+    OR (d.owner_type = 'service' AND EXISTS (SELECT 1 FROM service_register s WHERE s.id = d.owner_id AND (${can(u, "service.view_all") ? "s.matter_id IS NULL OR " : "(s.matter_id IS NULL AND (s.created_by = $1 OR s.handled_by = $1)) OR "}s.matter_id = m.id)))
+    OR (d.owner_type = 'meeting' AND EXISTS (SELECT 1 FROM meetings mt WHERE mt.id = d.owner_id AND (mt.created_by = $1 OR (mt.matter_id IS NOT NULL AND mt.matter_id = m.id))))
+  )`;
+  const [matters, clients, documents, service, meetings] = await Promise.all([
+    u.role === "front_desk" ? Promise.resolve([] as MatterRow[]) : listMatters(u, { status: "all", q: term }),
+    can(u, "clients.view") ? q<SearchResults["clients"][number]>("SELECT id, name, kind, email FROM clients WHERE name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1 OR rc_number ILIKE $1 ORDER BY name LIMIT 20", [like]) : Promise.resolve([]),
+    q<SearchResults["documents"][number]>(
+      `SELECT d.id, d.title, d.file_name, d.owner_type, d.owner_id, m.number AS matter_number, d.uploaded_at
+       FROM documents d LEFT JOIN matters m ON m.id = d.matter_id
+       WHERE d.deleted_at IS NULL AND (d.title ILIKE $2 OR d.file_name ILIKE $2 OR m.number ILIKE $2 OR m.title ILIKE $2)
+         AND d.version = (SELECT MAX(x.version) FROM documents x WHERE x.series_id = d.series_id AND x.deleted_at IS NULL)
+         AND ${docsAccess}
+       ORDER BY d.uploaded_at DESC LIMIT 30`,
+      [u.id, like],
+    ),
+    listService(u, { q: term }),
+    can(u, "meetings.use") ? listMeetings(u).then((r) => r.filter((x) => (x.title + " " + (x.participants || "") + " " + (x.matter_number || "")).toLowerCase().includes(term.toLowerCase())).slice(0, 15)) : Promise.resolve([] as MeetingRow[]),
+  ]);
+  const hearings = (await q<HearingRow>(
+    `SELECT h.*, m.number AS matter_number, m.title AS matter_title, m.confidential, us.full_name AS appearing_name
+     FROM hearings h JOIN matters m ON m.id = h.matter_id LEFT JOIN users us ON us.id = h.appearing
+     WHERE ${diaryAccessSql(u)} AND (h.suit_number ILIKE $2 OR h.court ILIKE $2 OR h.business ILIKE $2 OR m.title ILIKE $2 OR m.number ILIKE $2)
+     ORDER BY h.sitting_on DESC LIMIT 15`,
+    [u.id, like],
+  ));
+  return { matters: matters.slice(0, 20), clients, documents, service: service.slice(0, 20), hearings, meetings };
+}

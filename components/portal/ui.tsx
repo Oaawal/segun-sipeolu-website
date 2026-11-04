@@ -156,10 +156,10 @@ export function Select({ label, name, options, required, hint, blank, className 
   );
 }
 
-export function Check({ name, label, defaultChecked, required }: { name: string; label: ReactNode; defaultChecked?: boolean; required?: boolean }) {
+export function Check({ name, label, defaultChecked, required, value = "1" }: { name: string; label: ReactNode; defaultChecked?: boolean; required?: boolean; value?: string }) {
   return (
     <label className="flex items-start gap-2.5 text-sm text-stone-700">
-      <input type="checkbox" name={name} value="1" defaultChecked={defaultChecked} required={required} className="mt-0.5 h-4 w-4 flex-none accent-maroon" />
+      <input type="checkbox" name={name} value={value} defaultChecked={defaultChecked} required={required} className="mt-0.5 h-4 w-4 flex-none accent-maroon" />
       <span>{label}</span>
     </label>
   );

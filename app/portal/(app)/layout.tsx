@@ -36,6 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       items: [
         { key: "clients", label: "Clients", href: "/portal/clients" },
         ...(can(u, "conflicts.check") ? [{ key: "conflicts", label: "Conflict check", href: "/portal/conflicts" }] : []),
+        ...(u.role !== "front_desk" ? [{ key: "word", label: "Save from Word", href: "/portal/word/setup" }] : []),
       ],
     },
     ...(can(u, "users.manage")

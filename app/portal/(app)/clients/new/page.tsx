@@ -11,7 +11,7 @@ export default async function NewClient({ searchParams }: { searchParams: Promis
     <>
       <PageHeader title="New client" back={{ href: "/portal/clients", label: "Clients" }} />
       <Flash msg={sp.msg} />
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card><ClientForm next={sp.next === "matter" ? "matter" : undefined} /></Card>
         <Note tone="lock">Client details are confidential. Only the people who need them can see them, and every view is recorded in the audit trail.</Note>
       </div>

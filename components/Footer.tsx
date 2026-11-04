@@ -48,6 +48,8 @@ export default function Footer() {
 
       <div className="border-t border-white/10 py-6 text-center text-sm text-white/50">
         © 2026 Segun Sipeolu & Associates. All rights reserved.
+        <span className="mx-2">·</span>
+        <a href="/portal" rel="nofollow" className="hover:text-[#D4B06A]">Staff portal</a>
       </div>
     </footer>
   );

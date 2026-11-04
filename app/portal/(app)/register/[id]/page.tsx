@@ -43,7 +43,7 @@ export default async function Entry({ params, searchParams }: { params: Promise<
         sub={<span className="flex flex-wrap items-center gap-2">{e.direction === "in" ? "Served on the firm" : "Served by the firm"} · {e.number} {e.status === "open" && e.response_due ? <DueBadge days={daysUntil(e.response_due)} label={`Response ${dueLabel(e.response_due).toLowerCase()}`} /> : <Badge tone={e.status === "open" ? "blue" : "green"}>{e.status}</Badge>}</span>}
       />
       <Flash msg={sp.msg} />
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <div className="space-y-6">
           <Card title="Record of service">
             <dl className="grid grid-cols-[minmax(110px,35%)_1fr] gap-x-4 gap-y-2.5 text-sm">

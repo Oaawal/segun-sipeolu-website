@@ -32,7 +32,7 @@ export default async function NewMatter({ searchParams }: { searchParams: Promis
       <Flash msg={sp.msg} />
 
       <Card title="1 · Client and other parties" className="mb-6">
-        <form className="grid gap-4 md:grid-cols-2">
+        <form className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <input type="hidden" name="checked" value="1" />
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-semibold text-stone-700">Client <span className="text-maroon">*</span></span>
@@ -55,7 +55,7 @@ export default async function NewMatter({ searchParams }: { searchParams: Promis
           </Card>
 
           <Card title="2 · Matter details">
-            <form action={createMatter} className="grid gap-4 md:grid-cols-2">
+            <form action={createMatter} className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <input type="hidden" name="client_id" value={client.id} />
               <input type="hidden" name="opposing" value={parties.join("\n")} />
               <input type="hidden" name="conflict_query" value={[client.name, ...parties].join("; ")} />
@@ -73,8 +73,8 @@ export default async function NewMatter({ searchParams }: { searchParams: Promis
               {team.length > 0 && (
                 <fieldset className="md:col-span-2">
                   <legend className="mb-2 text-[13px] font-semibold text-stone-700">Matter team (you are added automatically)</legend>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {team.map((s) => <Check key={s.id} name="members" label={<>{s.full_name} <span className="text-stone-400">· {s.title || s.role}</span></>} />)}
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {team.map((s) => <Check key={s.id} name="members" value={s.id} label={<>{s.full_name} <span className="text-stone-400">· {s.title || s.role}</span></>} />)}
                   </div>
                 </fieldset>
               )}
