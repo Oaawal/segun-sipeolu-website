@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Staff portal: local database and uploaded files (never commit client data)
+/data/
+.env*.local
