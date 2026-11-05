@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 // Staff portal (/portal) pages must never be cached, framed or indexed.
@@ -11,6 +12,10 @@ const portalHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Always treat this folder as the project root, even if another lockfile sits
+  // in a parent folder (e.g. a stray package-lock.json in the home folder).
+  turbopack: { root: path.resolve(__dirname) },
+  outputFileTracingRoot: path.resolve(__dirname),
   // The embedded Postgres (PGlite) ships WebAssembly and the pg driver uses
   // native modules: load both from node_modules instead of bundling them.
   serverExternalPackages: ["@electric-sql/pglite", "pg"],
