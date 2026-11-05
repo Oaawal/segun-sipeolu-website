@@ -377,4 +377,181 @@ ALTER TABLE documents ADD CONSTRAINT documents_owner_type_check CHECK (owner_typ
 ALTER TABLE documents ADD COLUMN source TEXT;    -- browser, phone_share, camera, windows, folder, word
 `,
   },
+  {
+    id: "0004_firm_modules",
+    sql: /* sql */ `
+-- ── Calendar feeds ─────────────────────────────────────────────
+-- A private address per person that calendar apps (Google, Outlook, iPhone)
+-- subscribe to. Only a hash is stored; resetting it stops the old address.
+CREATE TABLE calendar_feeds (
+  user_id      UUID PRIMARY KEY REFERENCES users(id),
+  token_hash   TEXT NOT NULL UNIQUE,
+  detail       TEXT NOT NULL DEFAULT 'minimal' CHECK (detail IN ('minimal','full')),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_used_at TIMESTAMPTZ
+);
+
+-- ── Precedents and templates ───────────────────────────────────
+CREATE TABLE templates (
+  id           UUID PRIMARY KEY,
+  title        TEXT NOT NULL,
+  category     TEXT NOT NULL DEFAULT 'other',  -- letter, engagement, court, corporate, property, other
+  description  TEXT,
+  file_name    TEXT NOT NULL,
+  size_bytes   BIGINT NOT NULL,
+  sha256       TEXT NOT NULL,
+  storage_key  TEXT NOT NULL,
+  fields       TEXT,                           -- JSON list of {{fields}} found in the document
+  active       BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by   UUID,
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ── Contacts directory ─────────────────────────────────────────
+CREATE TABLE contacts (
+  id            UUID PRIMARY KEY,
+  name          TEXT NOT NULL,
+  organisation  TEXT,
+  kind          TEXT NOT NULL DEFAULT 'other',  -- court, registry, counsel, bailiff, agency, expert, vendor, bank, client_contact, other
+  role          TEXT,
+  email         TEXT,
+  phone         TEXT,
+  phone_alt     TEXT,
+  address       TEXT,
+  website       TEXT,
+  notes         TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by    UUID,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  archived_at   TIMESTAMPTZ
+);
+CREATE INDEX contacts_name ON contacts(lower(name));
+CREATE TABLE contact_matters (
+  contact_id  UUID NOT NULL REFERENCES contacts(id),
+  matter_id   UUID NOT NULL REFERENCES matters(id),
+  note        TEXT,
+  added_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  added_by    UUID,
+  PRIMARY KEY (contact_id, matter_id)
+);
+
+-- ── Company secretarial register ───────────────────────────────
+CREATE TABLE entities (
+  id                 UUID PRIMARY KEY,
+  client_id          UUID REFERENCES clients(id),
+  name               TEXT NOT NULL,
+  entity_type        TEXT NOT NULL,          -- private_ltd, public_plc, ltd_gte, business_name, incorporated_trustees, llp, other
+  rc_number          TEXT,
+  incorporated_on    DATE,
+  registered_address TEXT,
+  share_capital      TEXT,
+  tin                TEXT,
+  firm_role          TEXT,                   -- company_secretary, retained_counsel, filing_agent
+  status             TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','dormant','struck_off','dissolved')),
+  notes              TEXT,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by         UUID,
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE entity_officers (
+  id            UUID PRIMARY KEY,
+  entity_id     UUID NOT NULL REFERENCES entities(id),
+  name          TEXT NOT NULL,
+  role          TEXT NOT NULL,               -- director, secretary, trustee, chairman, proprietor, psc
+  nationality   TEXT,
+  address       TEXT,
+  appointed_on  DATE,
+  ceased_on     DATE,
+  notes         TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by    UUID
+);
+CREATE TABLE entity_shareholdings (
+  id            UUID PRIMARY KEY,
+  entity_id     UUID NOT NULL REFERENCES entities(id),
+  holder        TEXT NOT NULL,
+  share_class   TEXT NOT NULL DEFAULT 'Ordinary',
+  shares        BIGINT NOT NULL,
+  acquired_on   DATE,
+  ceased_on     DATE,
+  notes         TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by    UUID
+);
+CREATE TABLE entity_filings (
+  id            UUID PRIMARY KEY,
+  entity_id     UUID NOT NULL REFERENCES entities(id),
+  kind          TEXT NOT NULL,               -- annual_return, agm, change_of_directors, allotment, address_change, psc, tax_return, other
+  title         TEXT NOT NULL,
+  due_on        DATE,
+  filed_on      DATE,
+  reference     TEXT,
+  responsible   UUID REFERENCES users(id),
+  status        TEXT NOT NULL DEFAULT 'due' CHECK (status IN ('due','filed','waived')),
+  notes         TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by    UUID
+);
+CREATE INDEX entity_filings_due ON entity_filings(status, due_on);
+
+-- ── Office and IT register ─────────────────────────────────────
+CREATE TABLE assets (
+  id            UUID PRIMARY KEY,
+  kind          TEXT NOT NULL,               -- laptop, desktop, phone, tablet, printer, network, storage, software, subscription, domain, furniture, other
+  name          TEXT NOT NULL,
+  make_model    TEXT,
+  serial        TEXT,
+  assigned_to   UUID REFERENCES users(id),
+  location      TEXT,
+  purchased_on  DATE,
+  cost          TEXT,
+  supplier      TEXT,
+  warranty_until DATE,
+  renews_on     DATE,
+  status        TEXT NOT NULL DEFAULT 'in_use' CHECK (status IN ('in_use','spare','repair','retired','lost')),
+  notes         TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by    UUID,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Systems people can sign in to (email admin, bank, CAC portal, court e-filing...).
+-- Never passwords: only who holds access, so access can be removed when people leave.
+CREATE TABLE systems (
+  id          UUID PRIMARY KEY,
+  name        TEXT NOT NULL,
+  url         TEXT,
+  owner_note  TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by  UUID
+);
+CREATE TABLE system_access (
+  system_id   UUID NOT NULL REFERENCES systems(id),
+  user_id     UUID NOT NULL REFERENCES users(id),
+  level       TEXT NOT NULL DEFAULT 'user',  -- user, admin, signatory
+  granted_on  DATE NOT NULL DEFAULT CURRENT_DATE,
+  revoked_on  DATE,
+  note        TEXT,
+  PRIMARY KEY (system_id, user_id)
+);
+
+-- ── Mailbox in the portal ──────────────────────────────────────
+-- Each person's own email account. The password is encrypted with APP_SECRET.
+CREATE TABLE mail_accounts (
+  user_id       UUID PRIMARY KEY REFERENCES users(id),
+  address       TEXT NOT NULL,
+  imap_host     TEXT NOT NULL,
+  imap_port     INTEGER NOT NULL,
+  imap_secure   BOOLEAN NOT NULL DEFAULT TRUE,
+  smtp_host     TEXT NOT NULL,
+  smtp_port     INTEGER NOT NULL,
+  smtp_secure   BOOLEAN NOT NULL DEFAULT TRUE,
+  username      TEXT NOT NULL,
+  password_enc  TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_ok_at    TIMESTAMPTZ,
+  last_error    TEXT
+);
+`,
+  },
 ];

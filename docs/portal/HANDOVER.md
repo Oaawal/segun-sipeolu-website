@@ -20,6 +20,14 @@ runs it: the Managing Partner, an IT provider, or a developer.
 | **Inbox & save from anywhere** | Each person's private inbox for files not yet on a matter. Files arrive by drag and drop (many files or whole folders), the phone camera, the phone's Share menu (installed portal app, Android), Windows "Send to → SOS&A Portal", the watched `Documents\Portal Inbox` folder (a subfolder named `SSA-LIT-2026-0001` files onto that matter), and Word. File to a matter with one click. |
 | **Search** | Everything a person may see, in one box. |
 | **Word** | Exports (matter summary, minutes, cause list) and the "Save to Portal" add-in for Word. |
+| **Mailbox** | Each person connects their own firm email (IMAP/SMTP): read, reply, forward, send, and file any email (.eml, opens in Outlook) or attachment to a matter in one click. Emails display with scripts blocked and internet pictures off. Nobody can open a colleague's mailbox. |
+| **Email to the portal** | Forward or send to the intake address (e.g. `portal@segunsipeolu.com`) and the email and attachments land in your Inbox. `[SSA/LIT/2026/0001]` in the subject files it onto that matter. Only verified staff senders are accepted. |
+| **Templates** | The firm's precedents as Word files with `{{fields}}` (client, matter, court, suit number, parties, next date, service details…). Generate for a matter in one click: it downloads to open in Word and a copy is saved on the matter. Starter letter of engagement, letter of demand and affidavit of service included. |
+| **Calendar sync** | Each person's private calendar address for Google, Outlook or iPhone: court dates, deadlines, tasks, responses due, company filings and (admin) renewals. Matter numbers only by default, because calendar companies keep copies. |
+| **Contacts** | Courts, registries, counsel, bailiffs, agencies, experts and banks, linked to matters; call, WhatsApp, email, or save to phone (vCard). |
+| **Company secretarial** | Client companies: officers, shareholders (with percentages), and filings with due dates. Appointing or removing a director adds a 14-day CAC deadline; filing an annual return or AGM adds next year's. |
+| **Reports** | For partners: open matters, new instructions per month, workload by lawyer and practice area, court outcomes, overdue work by person, company filings due; CSV export. |
+| **Office & IT** | Equipment, licences, subscriptions and domains, with renewal reminders; who has access to which systems (never passwords); a leaver's checklist showing exactly what to collect and revoke. |
 | **Reminders** | Morning email digest per person; SMS for court today/tomorrow and urgent deadlines; instant alert when a document is served. |
 | **Administration** | People and roles, the audit trail (with integrity check), system health, backups. |
 
@@ -81,6 +89,10 @@ On a server, use crontab:
 ```
 
 Running it twice sends nothing twice. *System & backups* shows each run and every message sent. Email uses Brevo (`BREVO_API_KEY`, verified sender `NOTIFY_FROM_EMAIL`). SMS uses Termii (`TERMII_API_KEY` and an approved `TERMII_SENDER_ID`).
+
+### Mailbox and email to the portal
+- Set `MAIL_IMAP_HOST`/`MAIL_SMTP_HOST` (and ports) so staff only enter their address and password under *Mailbox*. With Google Workspace or Microsoft 365, staff need an app password (IMAP must be allowed for the account).
+- For email to the portal: create a mailbox such as `portal@segunsipeolu.com`, set the `PORTAL_INTAKE_*` settings, and have a scheduler call `/portal/api/cron/mail-intake` (Bearer `CRON_SECRET`) every 5-15 minutes. Accepted mail is moved to `Filed`, refused mail to `Rejected`, inside that mailbox.
 
 ### Meeting transcription and AI minutes
 - Speech-to-text: Deepgram (`DEEPGRAM_API_KEY`). To change provider, replace `transcribeAudio()` in `lib/portal/transcribe.ts`.

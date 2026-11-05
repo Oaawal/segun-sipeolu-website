@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { KeyRound, Laptop, MessageSquare, ShieldCheck } from "lucide-react";
+import { cookies, headers } from "next/headers";
+import { CalendarDays, KeyRound, Laptop, MessageSquare, Monitor, ShieldCheck } from "lucide-react";
 import { requireUser } from "@/lib/portal/auth";
 import { one, q } from "@/lib/portal/db";
 import { ROLES } from "@/lib/portal/permissions";
@@ -9,11 +9,12 @@ import { emailEnabled, smsEnabled } from "@/lib/portal/notify";
 import { ActionForm, SubmitButton } from "@/components/portal/ActionForm";
 import { Badge, Card, Check, Field, Flash, Note, PageHeader, Row, btn } from "@/components/portal/ui";
 import { changePasswordAction, signOutOthersAction } from "../../auth-actions";
-import { createWordToken, revokeToken, savePreferences, sendTestReminder } from "./actions";
+import { createWordToken, resetCalendar, revokeToken, savePreferences, sendTestReminder, setCalendarDetail, stopCalendar } from "./actions";
+import { ASSET_KINDS } from "@/lib/portal/vocab";
 
 export const metadata = { title: "Account" };
 
-export default async function Account({ searchParams }: { searchParams: Promise<{ msg?: string; token?: string; test?: string }> }) {
+export default async function Account({ searchParams }: { searchParams: Promise<{ msg?: string; token?: string; test?: string; calendar?: string }> }) {
   const u = await requireUser();
   const sp = await searchParams;
   const me = await one<{ phone: string | null; notify_email: boolean; notify_sms: boolean; last_login_at: string | null; password_changed_at: string | null }>("SELECT phone, notify_email, notify_sms, last_login_at, password_changed_at FROM users WHERE id = $1", [u.id]);
@@ -21,6 +22,13 @@ export default async function Account({ searchParams }: { searchParams: Promise<
   const tokens = await q<{ token_hash: string; name: string; created_at: string; expires_at: string; last_used_at: string | null }>("SELECT token_hash, name, created_at, expires_at, last_used_at FROM api_tokens WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now() ORDER BY created_at DESC", [u.id]);
   const jar = await cookies();
   const newToken = sp.token ? jar.get("ssa_new_token")?.value : undefined;
+  const newCal = sp.calendar ? jar.get("ssa_new_calendar")?.value : undefined;
+  const feed = await one<{ detail: string; created_at: string; last_used_at: string | null }>("SELECT detail, created_at, last_used_at FROM calendar_feeds WHERE user_id = $1", [u.id]);
+  const h = await headers();
+  const origin = process.env.PORTAL_URL?.replace(/\/$/, "") || `${h.get("x-forwarded-proto") || "http"}://${h.get("host")}`;
+  const calUrl = newCal ? `${origin}/portal/calendar/${newCal}.ics` : null;
+  const mine = await q<{ id: string; name: string; kind: keyof typeof ASSET_KINDS; serial: string | null }>("SELECT id, name, kind, serial FROM assets WHERE assigned_to = $1 AND status != 'retired' ORDER BY name", [u.id]);
+  const myAccess = await q<{ name: string; level: string }>("SELECT s.name, a.level FROM system_access a JOIN systems s ON s.id = a.system_id WHERE a.user_id = $1 AND a.revoked_on IS NULL ORDER BY s.name", [u.id]);
 
   return (
     <>
@@ -43,6 +51,38 @@ export default async function Account({ searchParams }: { searchParams: Promise<
           </div>
         </Card>
 
+
+        <Card title={<span id="calendar" className="flex items-center gap-2"><CalendarDays className="h-4 w-4" />Calendar on your phone</span>}>
+          <p className="mb-4 text-sm text-stone-600">Your court dates, deadlines, tasks, responses due and filings, in Google Calendar, Outlook or your iPhone, updated every hour.</p>
+          {calUrl && (
+            <div className="mb-4 rounded-xl border-2 border-gold bg-gold/10 p-4">
+              <div className="text-sm font-semibold text-maroon-dark">Your private calendar address: copy it now, it is shown only once</div>
+              <code className="mt-2 block select-all break-all rounded-lg bg-white p-3 font-mono text-xs">{calUrl}</code>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a href={calUrl.replace(/^https?:/, "webcal:")} className={btn.small}>Open in iPhone / Mac Calendar</a>
+                <a href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(calUrl.replace(/^https?:/, "webcal:"))}`} target="_blank" rel="noopener" className={btn.small}>Add to Google Calendar</a>
+              </div>
+              <p className="mt-2 text-xs text-stone-600">Outlook: Add calendar → Subscribe from web → paste the address. Google only reaches the address once the portal is on the internet.</p>
+            </div>
+          )}
+          {feed ? (
+            <>
+              <div className="mb-3 text-sm text-stone-600">Connected {fmtDateTime(feed.created_at)} · last read by your calendar {feed.last_used_at ? ago(feed.last_used_at) : "not yet"}</div>
+              <form action={setCalendarDetail} className="flex flex-wrap items-end gap-2">
+                <label className="min-w-[200px] flex-1 text-sm"><span className="mb-1.5 block text-[13px] font-semibold text-stone-700">Detail shown in the calendar</span>
+                  <select name="detail" defaultValue={feed.detail} className="w-full rounded-lg border border-stone-300 px-3 py-2.5"><option value="minimal">Matter numbers only (recommended)</option><option value="full">Matter titles and task names</option></select></label>
+                <button className={btn.small}>Save</button>
+              </form>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <form action={resetCalendar}><input type="hidden" name="detail" value={feed.detail} /><button className={btn.small}>New address (stops the old one)</button></form>
+                <form action={stopCalendar}><button className="text-xs font-semibold text-red-700 hover:underline">Turn off</button></form>
+              </div>
+            </>
+          ) : (
+            <form action={resetCalendar}><input type="hidden" name="detail" value="minimal" /><button className={btn.primary}><CalendarDays className="h-4 w-4" />Create my calendar address</button></form>
+          )}
+          <p className="mt-3 text-xs text-stone-500">Calendar companies keep a copy of what they show, so by default events carry matter numbers, courts and times, not client names.</p>
+        </Card>
         <Card title={<span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" />Security</span>}>
           <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
             Two-factor sign-in: {u.totp_enabled ? <Badge tone="green">On</Badge> : <><Badge tone="amber">Off</Badge><Link href="/portal/security/two-factor" className={btn.small}>Turn on</Link></>}
@@ -88,6 +128,16 @@ export default async function Account({ searchParams }: { searchParams: Promise<
               ))}
             </div>
           )}
+        </Card>
+
+        <Card title={<span className="flex items-center gap-2"><Monitor className="h-4 w-4" />Equipment and access in your name</span>}>
+          {mine.length === 0 && myAccess.length === 0 ? <p className="text-sm text-stone-400">Nothing recorded.</p> : (
+            <ul className="space-y-1.5 text-sm">
+              {mine.map((a) => <li key={a.id}>{a.name} <span className="text-stone-500">· {ASSET_KINDS[a.kind]}{a.serial ? ` · ${a.serial}` : ""}</span></li>)}
+              {myAccess.map((a) => <li key={a.name}>{a.name} <span className="text-stone-500">· {a.level} access</span></li>)}
+            </ul>
+          )}
+          <p className="mt-3 text-xs text-stone-500">If anything here is wrong, tell the Managing Partner.</p>
         </Card>
       </div>
     </>

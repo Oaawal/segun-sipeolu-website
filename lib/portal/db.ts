@@ -1,5 +1,6 @@
 import "server-only";
 import path from "node:path";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { MIGRATIONS } from "./schema";
 
 /**
@@ -122,7 +123,15 @@ function engine(): Promise<Engine> {
   return g.__portalDb;
 }
 
+// The transaction in progress, if any. Queries made while a transaction is open
+// (including from helpers that know nothing about it) run inside it, so they
+// see its changes and can never wait on it (the embedded database has a single
+// connection, so a query outside the open transaction would wait for ever).
+const currentTx = new AsyncLocalStorage<Queryable>();
+
 export async function q<T extends object = Row>(sql: string, params: unknown[] = []): Promise<T[]> {
+  const t = currentTx.getStore();
+  if (t) return (await t.query<T>(sql, params)).rows;
   return (await (await engine()).query<T>(sql, params)).rows;
 }
 
@@ -131,7 +140,9 @@ export async function one<T extends object = Row>(sql: string, params: unknown[]
 }
 
 export async function tx<R>(fn: (t: Queryable) => Promise<R>): Promise<R> {
-  return (await engine()).transaction(fn);
+  const open = currentTx.getStore();
+  if (open) return fn(open); // already inside one: join it
+  return (await engine()).transaction((t) => currentTx.run(t, () => fn(t)));
 }
 
 export function dbEngineName() {

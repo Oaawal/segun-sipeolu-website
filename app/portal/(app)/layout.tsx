@@ -26,18 +26,29 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       items: [
         { key: "today", label: "Today", href: "/portal" },
         { key: "inbox", label: "Inbox", href: "/portal/inbox", badge: counts?.inbox || 0 },
+        ...(can(u, "mail.use") ? [{ key: "mail", label: "Mailbox", href: "/portal/mail" }] : []),
         ...(u.role !== "front_desk" ? [{ key: "matters", label: "Matters", href: "/portal/matters" }] : []),
         { key: "diary", label: "Court diary", href: "/portal/diary" },
         { key: "register", label: "Service register", href: "/portal/register", badge: counts?.due || 0 },
         { key: "tasks", label: "Tasks", href: "/portal/tasks", badge: counts?.tasks || 0 },
         ...(can(u, "meetings.use") ? [{ key: "meetings", label: "Meetings & minutes", href: "/portal/meetings" }] : []),
+        ...(can(u, "templates.use") ? [{ key: "templates", label: "Templates", href: "/portal/templates" }] : []),
       ],
     },
     {
-      name: "Clients",
+      name: "Clients & contacts",
       items: [
         { key: "clients", label: "Clients", href: "/portal/clients" },
+        ...(can(u, "cosec.view") ? [{ key: "cosec", label: "Company secretarial", href: "/portal/cosec" }] : []),
+        ...(can(u, "contacts.view") ? [{ key: "contacts", label: "Contacts", href: "/portal/contacts" }] : []),
         ...(can(u, "conflicts.check") ? [{ key: "conflicts", label: "Conflict check", href: "/portal/conflicts" }] : []),
+      ],
+    },
+    {
+      name: "Firm",
+      items: [
+        ...(can(u, "reports.view") ? [{ key: "reports", label: "Reports", href: "/portal/reports" }] : []),
+        ...(can(u, "office.manage") ? [{ key: "office", label: "Office & IT", href: "/portal/office" }] : []),
         { key: "connect", label: "Save from anywhere", href: "/portal/connect" },
       ],
     },

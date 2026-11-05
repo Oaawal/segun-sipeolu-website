@@ -45,3 +45,30 @@ export async function revokeToken(fd: FormData) {
   await audit({ userId: u.id, actor: u.email, action: "account.word_token_revoked", entityType: "user", entityId: u.id });
   redirect("/portal/account?msg=saved#codes");
 }
+
+/** Create or reset the person's private calendar address. Shown once. */
+export async function resetCalendar(fd: FormData) {
+  const u = await requireUser();
+  const token = randomToken(32);
+  const detail = fd.get("detail") === "full" ? "full" : "minimal";
+  await q(`INSERT INTO calendar_feeds (user_id, token_hash, detail) VALUES ($1,$2,$3)
+           ON CONFLICT (user_id) DO UPDATE SET token_hash = $2, detail = $3, created_at = now(), last_used_at = NULL`, [u.id, sha256(token), detail]);
+  await audit({ userId: u.id, actor: u.email, action: "account.calendar_link_created", entityType: "user", entityId: u.id, detail: { detail } });
+  (await cookies()).set("ssa_new_calendar", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/portal/account", maxAge: 300 });
+  redirect("/portal/account?calendar=1#calendar");
+}
+
+export async function setCalendarDetail(fd: FormData) {
+  const u = await requireUser();
+  const detail = fd.get("detail") === "full" ? "full" : "minimal";
+  await q("UPDATE calendar_feeds SET detail = $2 WHERE user_id = $1", [u.id, detail]);
+  await audit({ userId: u.id, actor: u.email, action: "account.calendar_detail", entityType: "user", entityId: u.id, detail: { detail } });
+  redirect("/portal/account?msg=saved#calendar");
+}
+
+export async function stopCalendar() {
+  const u = await requireUser();
+  await q("DELETE FROM calendar_feeds WHERE user_id = $1", [u.id]);
+  await audit({ userId: u.id, actor: u.email, action: "account.calendar_link_removed", entityType: "user", entityId: u.id });
+  redirect("/portal/account?msg=saved#calendar");
+}

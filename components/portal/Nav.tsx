@@ -4,12 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import {
-  LayoutDashboard, Briefcase, CalendarDays, Inbox, ListChecks, Mic, Users, ScanSearch, ShieldCheck, ScrollText, Server, FileText, FolderInput, Smartphone, type LucideIcon,
+  LayoutDashboard, Briefcase, CalendarDays, Inbox, ListChecks, Mic, Users, ScanSearch, ShieldCheck, ScrollText, Server, FileText, FolderInput, Smartphone, Mail, FileSignature, Building2, BookUser, BarChart3, Monitor, type LucideIcon,
 } from "lucide-react";
 
 const ICONS: Record<string, LucideIcon> = {
   today: LayoutDashboard, matters: Briefcase, diary: CalendarDays, register: Inbox, tasks: ListChecks, meetings: Mic,
-  clients: Users, conflicts: ScanSearch, people: ShieldCheck, audit: ScrollText, system: Server, word: FileText, inbox: FolderInput, connect: Smartphone,
+  clients: Users, conflicts: ScanSearch, people: ShieldCheck, audit: ScrollText, system: Server, word: FileText, inbox: FolderInput, connect: Smartphone, mail: Mail, templates: FileSignature, cosec: Building2, contacts: BookUser, reports: BarChart3, office: Monitor,
 };
 
 export interface NavItem { key: string; label: string; href: string; badge?: number }

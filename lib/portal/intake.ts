@@ -22,6 +22,9 @@ export const SOURCES = {
   windows: "Sent from Windows",
   folder: "Portal Inbox folder",
   word: "Saved from Word",
+  email: "Sent to the portal by email",
+  mailbox: "Filed from the mailbox",
+  template: "Generated from a template",
 } as const;
 export type Source = keyof typeof SOURCES;
 

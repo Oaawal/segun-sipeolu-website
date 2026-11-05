@@ -6,9 +6,9 @@ import { audit } from "@/lib/portal/audit";
 
 export const runtime = "nodejs";
 
-const TABLES = ["users", "clients", "matters", "matter_members", "parties", "matter_notes", "hearings", "service_register", "tasks", "documents", "meetings", "notifications", "audit_log", "counters", "settings", "schema_migrations"];
+const TABLES = ["users", "clients", "matters", "matter_members", "parties", "matter_notes", "hearings", "service_register", "tasks", "documents", "meetings", "notifications", "audit_log", "templates", "contacts", "contact_matters", "entities", "entity_officers", "entity_shareholdings", "entity_filings", "assets", "systems", "system_access", "mail_accounts", "calendar_feeds", "api_tokens", "counters", "settings", "schema_migrations"];
 // Secrets never leave the server, even in a backup
-const STRIP: Record<string, string[]> = { users: ["password_hash", "totp_secret"] };
+const STRIP: Record<string, string[]> = { users: ["password_hash", "totp_secret"], mail_accounts: ["password_enc"], calendar_feeds: ["token_hash"], api_tokens: ["token_hash"] };
 
 /** Full export of the records (not the files), for the Managing Partner. */
 export async function GET(req: NextRequest) {

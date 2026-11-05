@@ -16,6 +16,9 @@ const PERM_LABELS: Record<string, string> = {
   "conflicts.check": "Conflict checks", "diary.view_all": "Firm-wide court diary", "diary.edit": "Add court dates and results",
   "service.view_all": "Firm-wide service register", "service.log_inward": "Log documents served on us", "service.edit": "Record service by us",
   "tasks.assign_others": "Give tasks to others", "meetings.use": "Meetings, transcripts and AI minutes",
+  "contacts.view": "Contacts directory", "contacts.edit": "Add and edit contacts", "templates.use": "Generate documents from templates",
+  "templates.manage": "Manage precedents and templates", "cosec.view": "Company secretarial register", "cosec.edit": "Edit company secretarial records",
+  "reports.view": "Partner reports", "office.manage": "Office and IT register", "mail.use": "Own mailbox in the portal",
 };
 
 export default async function People({ searchParams }: { searchParams: Promise<{ msg?: string; link?: string }> }) {

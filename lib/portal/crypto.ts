@@ -64,17 +64,17 @@ function key(purpose: string): Buffer {
   return crypto.createHash("sha256").update(`${purpose}:${appSecret()}`).digest();
 }
 
-export function encrypt(plain: string): string {
+export function encrypt(plain: string, purpose = "totp"): string {
   const iv = crypto.randomBytes(12);
-  const c = crypto.createCipheriv("aes-256-gcm", key("totp"), iv);
+  const c = crypto.createCipheriv("aes-256-gcm", key(purpose), iv);
   const data = Buffer.concat([c.update(plain, "utf8"), c.final()]);
   return `v1.${iv.toString("base64url")}.${c.getAuthTag().toString("base64url")}.${data.toString("base64url")}`;
 }
 
-export function decrypt(blob: string): string {
+export function decrypt(blob: string, purpose = "totp"): string {
   const [v, iv, tag, data] = blob.split(".");
   if (v !== "v1") throw new Error("Unknown secret format");
-  const d = crypto.createDecipheriv("aes-256-gcm", key("totp"), Buffer.from(iv, "base64url"));
+  const d = crypto.createDecipheriv("aes-256-gcm", key(purpose), Buffer.from(iv, "base64url"));
   d.setAuthTag(Buffer.from(tag, "base64url"));
   return Buffer.concat([d.update(Buffer.from(data, "base64url")), d.final()]).toString("utf8");
 }

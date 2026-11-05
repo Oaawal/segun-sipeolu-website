@@ -143,6 +143,7 @@ export default async function MatterPage({ params, searchParams }: { params: Pro
         <Card title={`Documents (${docs.length})`} pad={false}><DocumentList docs={docs} ownerType="matter" ownerId={m.id} canRemove canUpload /></Card>
         <div className="space-y-6">
           <Card title="Add documents"><Uploader fixedMatter={m.id} /></Card>
+          {can(u, "templates.use") && <Link href="/portal/templates" className={`${btn.ghost} w-full`}>Create a document from a template</Link>}
           <Note tone="info">Files can also come from Word, your phone or Windows. See <Link href="/portal/connect" className="font-semibold underline">Save from anywhere</Link>.</Note>
         </div>
       </div>

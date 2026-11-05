@@ -4,6 +4,7 @@ import { dbEngineName, one, q } from "@/lib/portal/db";
 import { emailEnabled, smsEnabled } from "@/lib/portal/notify";
 import { transcriptionEnabled } from "@/lib/portal/transcribe";
 import { minutesEnabled } from "@/lib/portal/minutes";
+import { intakeAddress, intakeEnabled } from "@/lib/portal/mail-intake";
 import { fmtDateTime } from "@/lib/portal/format";
 import { Badge, Card, Note, PageHeader, Row, btn } from "@/components/portal/ui";
 import { runRemindersNow } from "../actions";
@@ -21,7 +22,9 @@ export default async function System({ searchParams }: { searchParams: Promise<{
     ["Daily reminders schedule (CRON_SECRET)", !!process.env.CRON_SECRET, "Call /portal/api/cron/reminders every morning"],
     ["Meeting transcription (Deepgram)", transcriptionEnabled(), "DEEPGRAM_API_KEY"],
     ["AI minutes (Claude)", minutesEnabled(), "ANTHROPIC_API_KEY"],
-    ["Portal address (PORTAL_URL)", !!process.env.PORTAL_URL, "Used for links in reminders"],
+    ["Portal address (PORTAL_URL)", !!process.env.PORTAL_URL, "Used for links in reminders, calendars and the Word and Windows helpers"],
+    ["Mail server defaults (MAIL_IMAP_HOST, MAIL_SMTP_HOST)", !!process.env.MAIL_IMAP_HOST && !!process.env.MAIL_SMTP_HOST, "So staff only type their address and password to connect their mailbox"],
+    ["Email to the portal (PORTAL_INTAKE_*)", intakeEnabled(), intakeEnabled() ? `Send or forward to ${intakeAddress()}; check it every 5-15 minutes at /portal/api/cron/mail-intake` : "A mailbox such as portal@segunsipeolu.com that the portal empties into staff inboxes"],
   ];
   const counts = await one<Record<string, number>>(`SELECT
     (SELECT COUNT(*) FROM users WHERE active) AS people, (SELECT COUNT(*) FROM clients) AS clients, (SELECT COUNT(*) FROM matters) AS matters,

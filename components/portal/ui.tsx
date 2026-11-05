@@ -217,6 +217,9 @@ const MESSAGES: Record<string, [ "ok" | "danger", string ]> = {
   processing: ["ok", "Recording received. Transcription is running; this page updates by itself."],
   minutes_ready: ["ok", "Minutes generated. Review them before relying on them."],
   speakers: ["ok", "Speaker names updated."],
+  mail_filed: ["ok", "Filed. The email is saved as an .eml file, which opens in Outlook, with the attachments you ticked."],
+  mail_sent: ["ok", "Sent. A copy is in your Sent folder."],
+  template_bad: ["danger", "That file could not be used. Upload a Word document saved as .docx."],
 };
 
 export function Flash({ msg }: { msg?: string | string[] }) {

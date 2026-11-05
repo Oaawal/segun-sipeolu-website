@@ -4,6 +4,7 @@ import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { requireUser } from "@/lib/portal/auth";
 import { can } from "@/lib/portal/permissions";
 import { listDocuments, loadService, pickableMatters, staffList } from "@/lib/portal/data";
+import { one } from "@/lib/portal/db";
 import { audit } from "@/lib/portal/audit";
 import { daysUntil, dueLabel, fmtDateTime, fmtDay, isUuid } from "@/lib/portal/format";
 import { SERVICE_KINDS, SERVICE_METHODS } from "@/lib/portal/vocab";
@@ -21,6 +22,7 @@ export default async function Entry({ params, searchParams }: { params: Promise<
   const e = await loadService(u, id);
   if (!e) notFound();
   await audit({ userId: u.id, actor: u.email, action: "service.viewed", entityType: "service", entityId: e.id, matterId: e.matter_id });
+  const affidavit = await one<{ id: string }>("SELECT id FROM templates WHERE active AND fields LIKE '%service.%' ORDER BY created_at LIMIT 1");
   const [docs, staff, matters] = await Promise.all([listDocuments("service", e.id), staffList(), can(u, "service.edit") ? pickableMatters(u) : Promise.resolve([])]);
   const rows: [string, React.ReactNode][] = [
     ["Number", <strong key="n">{e.number}</strong>],
@@ -53,6 +55,7 @@ export default async function Entry({ params, searchParams }: { params: Promise<
           </Card>
           <Card title="Scans and attachments" pad={false}>
             <DocumentList docs={docs} ownerType="service" ownerId={e.id} canRemove={u.role !== "front_desk"} canUpload />
+            {e.direction === "out" && e.matter_id && affidavit && <div className="border-t border-stone-100 px-5 py-3"><Link href={`/portal/templates/${affidavit.id}?matter=${e.matter_id}`} className="text-sm font-semibold text-maroon">Prepare an affidavit of service from this entry →</Link></div>}
             <div className="border-t border-stone-100 p-5"><UploadForm ownerType="service" ownerId={e.id} /></div>
           </Card>
         </div>

@@ -40,6 +40,15 @@ export const PERMISSIONS = {
   "service.edit": ["admin", "partner", "lawyer", "litigation"],
   "tasks.assign_others": ["admin", "partner", "lawyer", "litigation"],
   "meetings.use": ["admin", "partner", "lawyer", "litigation"],
+  "contacts.view": ["admin", "partner", "lawyer", "litigation", "front_desk"],
+  "contacts.edit": ["admin", "partner", "lawyer", "litigation", "front_desk"],
+  "templates.use": ["admin", "partner", "lawyer", "litigation"],
+  "templates.manage": ["admin", "partner", "lawyer"],
+  "cosec.view": ["admin", "partner", "lawyer"],
+  "cosec.edit": ["admin", "partner", "lawyer"],
+  "reports.view": ["admin", "partner"],
+  "office.manage": ["admin"],
+  "mail.use": ["admin", "partner", "lawyer", "litigation", "front_desk"],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permission = keyof typeof PERMISSIONS;

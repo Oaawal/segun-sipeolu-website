@@ -99,3 +99,27 @@ export const MEETING_STATUS: Record<string, [string, "grey" | "amber" | "blue" |
   draft: ["Not recorded", "grey"], transcribing: ["Transcribing…", "amber"], transcribed: ["Transcript ready", "blue"],
   summarising: ["Writing minutes…", "amber"], ready: ["Minutes ready", "green"], failed: ["Needs attention", "red"],
 };
+
+export const CONTACT_KINDS = {
+  court: "Court / registry", counsel: "Opposing or other counsel", bailiff: "Bailiff / process server", agency: "Government agency / regulator",
+  expert: "Expert / valuer / surveyor", bank: "Bank", vendor: "Supplier / vendor", client_contact: "Client contact", other: "Other",
+} as const;
+
+export const ENTITY_TYPES = {
+  private_ltd: "Private company (Ltd)", public_plc: "Public company (Plc)", ltd_gte: "Company limited by guarantee", business_name: "Business name",
+  incorporated_trustees: "Incorporated trustees", llp: "Limited liability partnership", other: "Other",
+} as const;
+
+export const OFFICER_ROLES = { director: "Director", secretary: "Company secretary", trustee: "Trustee", chairman: "Chairman", proprietor: "Proprietor / partner", psc: "Person with significant control" } as const;
+
+export const FILING_KINDS = {
+  annual_return: "Annual return (CAC)", agm: "Annual general meeting", change_of_directors: "Change of directors / secretary", allotment: "Allotment of shares",
+  address_change: "Change of registered address", psc: "PSC register update", tax_return: "Tax return / filing", licence: "Licence or permit renewal", other: "Other",
+} as const;
+
+export const ASSET_KINDS = {
+  laptop: "Laptop", desktop: "Desktop computer", phone: "Phone", tablet: "Tablet", printer: "Printer / scanner", network: "Router / network",
+  storage: "Storage / backup drive", software: "Software licence", subscription: "Subscription / service", domain: "Domain / website", furniture: "Furniture / equipment", other: "Other",
+} as const;
+
+export const TEMPLATE_CATEGORIES = { engagement: "Engagement and client care", letter: "Letters", court: "Court processes", corporate: "Corporate / secretarial", property: "Property", other: "Other" } as const;

@@ -29,7 +29,7 @@ export async function remindersFor(p: Person, day = today()) {
   const hearingWhere = firmWide && can(p, "diary.view_all")
     ? diaryAccessSql(p)
     : `(h.appearing = $1 OR EXISTS (SELECT 1 FROM matter_members mm WHERE mm.matter_id = m.id AND mm.user_id = $1))`;
-  const [hearings, tasks, service] = await Promise.all([
+  const [hearings, tasks, service, filings, renewals] = await Promise.all([
     q<{ id: string; matter_id: string; number: string; title: string; sitting_on: string; sitting_time: string | null; court: string; business: string; appearing: string | null; appearing_name: string | null }>(
       `SELECT h.id, h.matter_id, m.number, m.title, h.sitting_on, h.sitting_time, h.court, h.business, h.appearing, u.full_name AS appearing_name
        FROM hearings h JOIN matters m ON m.id = h.matter_id LEFT JOIN users u ON u.id = h.appearing
@@ -51,13 +51,19 @@ export async function remindersFor(p: Person, day = today()) {
        ORDER BY s.response_due`,
       [p.id, addDays(day, 3)],
     ),
+    q<{ id: string; entity_id: string; title: string; due_on: string; name: string }>(
+      `SELECT f.id, f.entity_id, f.title, f.due_on, e.name FROM entity_filings f JOIN entities e ON e.id = f.entity_id
+       WHERE f.status = 'due' AND f.responsible = $1 AND f.due_on <= $2 ORDER BY f.due_on`, [p.id, addDays(day, 7)]),
+    p.role === "admin"
+      ? q<{ id: string; name: string; renews_on: string }>("SELECT id, name, renews_on FROM assets WHERE status != 'retired' AND renews_on <= $1 ORDER BY renews_on", [addDays(day, 14)])
+      : Promise.resolve([] as { id: string; name: string; renews_on: string }[]),
   ]);
-  return { hearings, tasks, service };
+  return { hearings, tasks, service, filings, renewals };
 }
 
 export async function sendDigest(p: Person, day = today(), { force = false } = {}) {
   const r = await remindersFor(p, day);
-  if (!r.hearings.length && !r.tasks.length && !r.service.length && !force) return { skipped: true };
+  if (!r.hearings.length && !r.tasks.length && !r.service.length && !r.filings.length && !r.renewals.length && !force) return { skipped: true };
   const url = portalUrl();
   const detailSms = process.env.PORTAL_SMS_DETAIL === "full";
   const html = emailLayout(
@@ -66,6 +72,8 @@ export async function sendDigest(p: Person, day = today(), { force = false } = {
       { heading: "In court", items: r.hearings.map((h) => ({ tag: h.sitting_on === day ? "Today" : "Tomorrow", title: `${h.sitting_time || ""} ${h.business}`.trim(), detail: `${h.title} (${h.number}) · ${h.court} · ${h.appearing_name ? `Counsel: ${h.appearing_name}` : "No counsel assigned"}`, href: `${url}/matters/${h.matter_id}?tab=diary` })) },
       { heading: "Your tasks due", items: r.tasks.map((t) => ({ tag: dueLabel(t.due_on), title: t.title, detail: `${t.kind === "deadline" ? "Deadline · " : ""}${t.number || "No matter"}`, href: t.matter_id ? `${url}/matters/${t.matter_id}?tab=tasks` : `${url}/tasks` })) },
       { heading: "Responses due (service register)", items: r.service.map((s) => ({ tag: dueLabel(s.response_due), title: s.title, detail: `${s.number}${s.matter_number ? ` · ${s.matter_number}` : ""}`, href: `${url}/register/${s.id}` })) },
+      { heading: "Company filings due", items: r.filings.map((f) => ({ tag: dueLabel(f.due_on), title: f.title, detail: f.name, href: `${url}/cosec/${f.entity_id}?tab=filings` })) },
+      { heading: "Office renewals", items: r.renewals.map((a) => ({ tag: dueLabel(a.renews_on), title: a.name, href: `${url}/office` })) },
     ],
     `${fmtDay(day, { weekday: "long", day: "numeric", month: "long" })}. Here is what needs you.`,
     url,
@@ -75,6 +83,8 @@ export async function sendDigest(p: Person, day = today(), { force = false } = {
     ...r.hearings.map((h) => `COURT ${h.sitting_on === day ? "TODAY" : "TOMORROW"} ${h.sitting_time || ""} ${h.business}: ${h.title} (${h.number}), ${h.court}`),
     ...r.tasks.map((t) => `TASK ${dueLabel(t.due_on)}: ${t.title}`),
     ...r.service.map((s) => `RESPONSE ${dueLabel(s.response_due)}: ${s.title} (${s.number})`),
+    ...r.filings.map((f) => `FILING ${dueLabel(f.due_on)}: ${f.title} (${f.name})`),
+    ...r.renewals.map((a) => `RENEWAL ${dueLabel(a.renews_on)}: ${a.name}`),
     url,
   ].join("\n");
 
@@ -85,9 +95,10 @@ export async function sendDigest(p: Person, day = today(), { force = false } = {
     ...r.hearings.map((h) => `Court ${h.sitting_on === day ? "today" : "tmrw"} ${h.sitting_time || ""} ${h.court.split(",")[0]}: ${detailSms ? h.title : h.number} (${h.business})`),
     ...(urgentTasks.length ? [`${urgentTasks.length} task${urgentTasks.length === 1 ? "" : "s"} due${urgentTasks.some((t) => t.due_on < day) ? " incl. overdue" : ""}`] : []),
     ...(urgentService.length ? [`${urgentService.length} response${urgentService.length === 1 ? "" : "s"} due`] : []),
+    ...(r.filings.some((f) => f.due_on <= addDays(day, 1)) ? ["company filing due"] : []),
   ];
   const sms = smsParts.length ? `${FIRM.short}: ${smsParts.join("; ")}. Details in the portal.` : undefined;
-  return notify(p, { kind: "digest", key: `digest:${day}`, subject: `${r.hearings.length ? `Court: ${r.hearings.length} · ` : ""}${r.tasks.length + r.service.length} due · ${fmtDay(day, { day: "numeric", month: "short" })}`, html, text, sms });
+  return notify(p, { kind: "digest", key: `digest:${day}`, subject: `${r.hearings.length ? `Court: ${r.hearings.length} · ` : ""}${r.tasks.length + r.service.length + r.filings.length} due · ${fmtDay(day, { day: "numeric", month: "short" })}`, html, text, sms });
 }
 
 /** Run the morning reminders for everyone. Safe to call more than once a day. */
