@@ -17,6 +17,7 @@ runs it: the Managing Partner, an IT provider, or a developer.
 | **Tasks** | From people, the diary, the register and meeting minutes. |
 | **Meetings & minutes** | Record in the browser (phone or laptop), upload a recording, or paste a Zoom/Teams/Meet transcript. Speech-to-text with speaker labels, then AI-drafted minutes: summary, decisions, action items (one click to tasks), deadlines, risks and a draft follow-up email. A lawyer must approve them. |
 | **Documents** | Encrypted, fingerprinted, versioned. Downloadable for editing; saved back from Word with the add-in. |
+| **Inbox & save from anywhere** | Each person's private inbox for files not yet on a matter. Files arrive by drag and drop (many files or whole folders), the phone camera, the phone's Share menu (installed portal app, Android), Windows "Send to → SOS&A Portal", the watched `Documents\Portal Inbox` folder (a subfolder named `SSA-LIT-2026-0001` files onto that matter), and Word. File to a matter with one click. |
 | **Search** | Everything a person may see, in one box. |
 | **Word** | Exports (matter summary, minutes, cause list) and the "Save to Portal" add-in for Word. |
 | **Reminders** | Morning email digest per person; SMS for court today/tomorrow and urgent deadlines; instant alert when a document is served. |
@@ -86,6 +87,10 @@ Running it twice sends nothing twice. *System & backups* shows each run and ever
 - Minutes: Claude by Anthropic (`ANTHROPIC_API_KEY`), model `claude-opus-5-5`, structured output, in `lib/portal/minutes.ts`.
 - Before switching either on, check the provider's data-processing terms (no training on your data, deletion after processing). Recordings are privileged.
 - Recording requires everyone present to have agreed; the portal asks for this confirmation first.
+
+### Phone app and Windows helper
+- **Phone:** open the portal in Chrome, then *Add to Home screen → Install*. On Android it then appears in every app's Share menu. Nothing is cached on the phone (`public/portal-sw.js`).
+- **Windows:** *Save from anywhere* in the portal has the download (`/portal/desktop/ssa-portal.ps1`, built with this portal's address). Right-click it, then *Run with PowerShell*, and paste a connection code. It adds Send to and the Portal Inbox folder (started at sign-in). The code is stored with Windows DPAPI for that user only. Remove with `ssa-portal.ps1 -Uninstall` in `%APPDATA%\SOSA Portal`; activity is logged in `activity.log` there.
 
 ### The Word add-in
 *Save from Word* in the portal has the steps. In short: download `/word/manifest.xml`, add it in Word (Home → Add-ins → My Add-ins → Upload My Add-in), or deploy it to everyone from the Microsoft 365 admin centre → Integrated apps. Each person then pastes a connection code from their Account page. Word requires the site to be on HTTPS.

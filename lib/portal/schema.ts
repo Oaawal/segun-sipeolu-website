@@ -365,4 +365,16 @@ CREATE TABLE api_tokens (
 CREATE INDEX api_tokens_user ON api_tokens(user_id);
 `,
   },
+  {
+    id: "0003_inbox",
+    sql: /* sql */ `
+-- ── Personal inbox ──────────────────────────────────────────────
+-- Files saved from outside the portal (phone share, Windows "Send to", the
+-- watched folder, bulk upload) can land in the person's own inbox, to be
+-- filed to a matter later. Only the owner can see their inbox.
+ALTER TABLE documents DROP CONSTRAINT documents_owner_type_check;
+ALTER TABLE documents ADD CONSTRAINT documents_owner_type_check CHECK (owner_type IN ('matter','service','meeting','inbox'));
+ALTER TABLE documents ADD COLUMN source TEXT;    -- browser, phone_share, camera, windows, folder, word
+`,
+  },
 ];

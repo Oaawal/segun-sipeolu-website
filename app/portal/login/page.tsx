@@ -8,13 +8,14 @@ import { currentUser, hasUsers } from "@/lib/portal/auth";
 export const metadata = { title: "Sign in" };
 export const dynamic = "force-dynamic";
 
-export default async function Login({ searchParams }: { searchParams: Promise<{ locked?: string }> }) {
+export default async function Login({ searchParams }: { searchParams: Promise<{ locked?: string; share?: string }> }) {
   if (!(await hasUsers())) redirect("/portal/setup");
   const u = await currentUser();
   if (u?.mfa_passed) redirect("/portal");
-  const { locked } = await searchParams;
+  const { locked, share } = await searchParams;
   return (
     <AuthCard title="Sign in" sub="Use your firm email address and password.">
+      {share && <div className="mb-4"><Note tone="info">Sign in, then share the file again. For your security, nothing is saved before you sign in.</Note></div>}
       {locked && <div className="mb-4"><Note tone="warn">Too many wrong codes. The account is locked for 15 minutes.</Note></div>}
       <ActionForm action={loginAction} className="space-y-4">
         <Field label="Email" name="email" type="email" autoComplete="username" required autoFocus />

@@ -12,8 +12,9 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const u = await requireUser();
-  const counts = await one<{ tasks: number; due: number }>(
+  const counts = await one<{ tasks: number; due: number; inbox: number }>(
     `SELECT (SELECT COUNT(*) FROM tasks t WHERE t.status = 'open' AND t.assigned_to = $1 AND t.due_on <= CURRENT_DATE) AS tasks,
+            (SELECT COUNT(*) FROM documents d WHERE d.owner_type = 'inbox' AND d.owner_id = $1 AND d.deleted_at IS NULL) AS inbox,
             (SELECT COUNT(*) FROM service_register s LEFT JOIN matters m ON m.id = s.matter_id
               WHERE s.status = 'open' AND s.response_due <= CURRENT_DATE + 3 AND (s.handled_by = $1 OR (s.matter_id IS NOT NULL AND ${matterAccessSql(u)}))) AS due`,
     [u.id],
@@ -24,6 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       name: "Work",
       items: [
         { key: "today", label: "Today", href: "/portal" },
+        { key: "inbox", label: "Inbox", href: "/portal/inbox", badge: counts?.inbox || 0 },
         ...(u.role !== "front_desk" ? [{ key: "matters", label: "Matters", href: "/portal/matters" }] : []),
         { key: "diary", label: "Court diary", href: "/portal/diary" },
         { key: "register", label: "Service register", href: "/portal/register", badge: counts?.due || 0 },
@@ -36,7 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       items: [
         { key: "clients", label: "Clients", href: "/portal/clients" },
         ...(can(u, "conflicts.check") ? [{ key: "conflicts", label: "Conflict check", href: "/portal/conflicts" }] : []),
-        ...(u.role !== "front_desk" ? [{ key: "word", label: "Save from Word", href: "/portal/word/setup" }] : []),
+        { key: "connect", label: "Save from anywhere", href: "/portal/connect" },
       ],
     },
     ...(can(u, "users.manage")

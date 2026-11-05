@@ -317,6 +317,7 @@ export async function searchEverything(u: Actor, term: string): Promise<SearchRe
   const docsAccess = `(
     (d.owner_type = 'matter' AND ${matterAccessSql(u)})
     OR (d.owner_type = 'service' AND EXISTS (SELECT 1 FROM service_register s WHERE s.id = d.owner_id AND (${can(u, "service.view_all") ? "s.matter_id IS NULL OR " : "(s.matter_id IS NULL AND (s.created_by = $1 OR s.handled_by = $1)) OR "}s.matter_id = m.id)))
+    OR (d.owner_type = 'inbox' AND d.owner_id = $1)
     OR (d.owner_type = 'meeting' AND EXISTS (SELECT 1 FROM meetings mt WHERE mt.id = d.owner_id AND (mt.created_by = $1 OR (mt.matter_id IS NOT NULL AND mt.matter_id = m.id))))
   )`;
   const [matters, clients, documents, service, meetings] = await Promise.all([

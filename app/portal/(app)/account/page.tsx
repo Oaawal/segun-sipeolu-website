@@ -66,8 +66,8 @@ export default async function Account({ searchParams }: { searchParams: Promise<
           {sessions.length > 1 && <div className="p-5"><form action={signOutOthersAction}><button className={btn.danger}>Sign out everywhere else</button></form></div>}
         </Card>
 
-        <Card title={<span id="word" className="flex items-center gap-2"><KeyRound className="h-4 w-4" />Save from Microsoft Word</span>}>
-          <p className="mb-4 text-sm text-stone-600">Install the SOS&amp;A add-in in Word (see <Link href="/portal/word/setup" className="font-semibold text-maroon">Word setup</Link>), then paste a connection code into it. Saving from Word puts the document on the matter you choose, as a new recorded version.</p>
+        <Card title={<span id="codes" className="flex items-center gap-2"><KeyRound className="h-4 w-4" />Connection codes (Word and Windows)</span>}>
+          <p className="mb-4 text-sm text-stone-600">A connection code lets the <Link href="/portal/word/setup" className="font-semibold text-maroon">Word add-in</Link> and the <Link href="/portal/connect#windows" className="font-semibold text-maroon">Windows helper</Link> save files for you, without your password. Create one per computer; revoke it if the computer is lost or replaced.</p>
           {newToken && (
             <div className="mb-4 rounded-xl border-2 border-gold bg-gold/10 p-4">
               <div className="text-sm font-semibold text-maroon-dark">Your new connection code: copy it now, it is shown only once</div>

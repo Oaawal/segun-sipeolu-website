@@ -35,7 +35,7 @@ export async function createWordToken(fd: FormData) {
   await audit({ userId: u.id, actor: u.email, action: "account.word_token_created", entityType: "user", entityId: u.id, detail: { name } });
   // Pass the code to the next page view once, in a short-lived cookie, so it never appears in a URL
   (await cookies()).set("ssa_new_token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/portal/account", maxAge: 120 });
-  redirect("/portal/account?token=1#word");
+  redirect("/portal/account?token=1#codes");
 }
 
 export async function revokeToken(fd: FormData) {
@@ -43,5 +43,5 @@ export async function revokeToken(fd: FormData) {
   const h = String(fd.get("hash") || "");
   await q("UPDATE api_tokens SET revoked_at = now() WHERE token_hash = $1 AND user_id = $2 AND revoked_at IS NULL", [h, u.id]);
   await audit({ userId: u.id, actor: u.email, action: "account.word_token_revoked", entityType: "user", entityId: u.id });
-  redirect("/portal/account?msg=saved#word");
+  redirect("/portal/account?msg=saved#codes");
 }

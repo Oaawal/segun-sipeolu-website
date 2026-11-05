@@ -8,7 +8,8 @@ import { q } from "@/lib/portal/db";
 import { ago, daysUntil, dueLabel, fmtDateTime, fmtDay, isUuid } from "@/lib/portal/format";
 import { MATTER_STATUS, MATTER_TYPES, MEETING_STATUS, PARTY_ROLES, PRACTICE_AREAS } from "@/lib/portal/vocab";
 import { Avatar, Badge, Card, Check, DueBadge, Empty, Field, Flash, Note, PageHeader, Row, Select, Tabs, TextArea, btn } from "@/components/portal/ui";
-import { DocumentList, UploadForm } from "@/components/portal/Documents";
+import { DocumentList } from "@/components/portal/Documents";
+import { Uploader } from "@/components/portal/Uploader";
 import { HearingCard, HearingForm } from "@/components/portal/DiaryParts";
 import { TaskForm, TaskList } from "@/components/portal/Tasks";
 import { addMember, addNote, addParty, removeMember, removeParty, updateMatter } from "../actions";
@@ -141,8 +142,8 @@ export default async function MatterPage({ params, searchParams }: { params: Pro
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Card title={`Documents (${docs.length})`} pad={false}><DocumentList docs={docs} ownerType="matter" ownerId={m.id} canRemove canUpload /></Card>
         <div className="space-y-6">
-          <Card title="Upload"><UploadForm ownerType="matter" ownerId={m.id} /></Card>
-          <Note tone="info">Working in Word? With the SOS&amp;A Word add-in you can save straight into this matter. Each save becomes a new version. See your Account page.</Note>
+          <Card title="Add documents"><Uploader fixedMatter={m.id} /></Card>
+          <Note tone="info">Files can also come from Word, your phone or Windows. See <Link href="/portal/connect" className="font-semibold underline">Save from anywhere</Link>.</Note>
         </div>
       </div>
     );

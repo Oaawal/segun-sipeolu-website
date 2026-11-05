@@ -20,7 +20,7 @@ export default async function WordSetup() {
                 <li><b>Whole firm at once:</b> the Microsoft 365 administrator uploads the same file in the Microsoft 365 admin centre → Settings → Integrated apps. It then appears for everyone automatically.</li>
               </ul>
             </li>
-            <li><strong className="text-maroon-dark">3. Connect it.</strong> Click <i>Save to Portal</i> on the Home tab, then paste a connection code from <Link href="/portal/account#word" className="font-semibold text-maroon">your Account page</Link>.</li>
+            <li><strong className="text-maroon-dark">3. Connect it.</strong> Click <i>Save to Portal</i> on the Home tab, then paste a connection code from <Link href="/portal/account#codes" className="font-semibold text-maroon">your Account page</Link>.</li>
             <li><strong className="text-maroon-dark">4. Save.</strong> Pick the matter, give the document a title and save. Next time you open that document, <i>Save as a new version</i> files your changes as v2, v3 and so on, with the full history kept.</li>
           </ol>
         </Card>
