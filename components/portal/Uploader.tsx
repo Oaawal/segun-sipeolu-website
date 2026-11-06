@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, CheckCircle2, FolderUp, Loader2, UploadCloud, XCircle } from "lucide-react";
+import { stageFile } from "@/lib/portal/stage-client";
 
 type Item = { key: string; name: string; size: number; progress: number; state: "waiting" | "sending" | "done" | "error"; note?: string };
 
@@ -20,7 +21,7 @@ function size(n: number) {
  * Each file uploads on its own with a progress bar, to the person's inbox or
  * to a matter. Files go straight to encrypted storage; nothing stays in the browser.
  */
-export function Uploader({ matters, fixedMatter }: { matters?: { id: string; number: string; title: string }[]; fixedMatter?: string }) {
+export function Uploader({ matters, fixedMatter, direct = false }: { matters?: { id: string; number: string; title: string }[]; fixedMatter?: string; direct?: boolean }) {
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [over, setOver] = useState(false);
@@ -33,16 +34,11 @@ export function Uploader({ matters, fixedMatter }: { matters?: { id: string; num
 
   const update = (key: string, patch: Partial<Item>) => setItems((xs) => xs.map((x) => (x.key === key ? { ...x, ...patch } : x)));
 
-  function send(file: File, key: string, source: string) {
+  function post(fd: FormData, key: string, track: boolean) {
     return new Promise<void>((resolve) => {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("destination", dest);
-      fd.append("category", category);
-      fd.append("source", source);
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/portal/api/upload");
-      xhr.upload.onprogress = (e) => e.lengthComputable && update(key, { progress: Math.round((e.loaded / e.total) * 100) });
+      if (track) xhr.upload.onprogress = (e) => e.lengthComputable && update(key, { progress: Math.round((e.loaded / e.total) * 100) });
       xhr.onload = () => {
         let body: { error?: string; results?: { error?: string }[] } = {};
         try { body = JSON.parse(xhr.responseText); } catch { /* not JSON */ }
@@ -51,9 +47,28 @@ export function Uploader({ matters, fixedMatter }: { matters?: { id: string; num
         resolve();
       };
       xhr.onerror = () => { update(key, { state: "error", note: "Connection lost. Try again." }); resolve(); };
-      update(key, { state: "sending" });
       xhr.send(fd);
     });
+  }
+
+  async function send(file: File, key: string, source: string) {
+    const fd = new FormData();
+    fd.append("destination", dest);
+    fd.append("category", category);
+    fd.append("source", source);
+    update(key, { state: "sending" });
+    if (!direct) {
+      fd.append("file", file);
+      return post(fd, key, true);
+    }
+    // Straight to storage first (no size limit from the host), then the portal checks and files it
+    try {
+      const ref = await stageFile(file, (p) => update(key, { progress: Math.min(95, p) }));
+      fd.append("file__staged", JSON.stringify(ref));
+      return post(fd, key, false);
+    } catch (err) {
+      update(key, { state: "error", note: (err as Error).message });
+    }
   }
 
   async function add(list: FileList | File[] | null, source = "browser") {

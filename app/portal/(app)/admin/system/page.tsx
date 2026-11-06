@@ -1,6 +1,7 @@
 import { CheckCircle2, Database, Download, XCircle } from "lucide-react";
 import { requirePermission } from "@/lib/portal/auth";
 import { dbEngineName, one, q } from "@/lib/portal/db";
+import { s3Enabled } from "@/lib/portal/storage";
 import { emailEnabled, smsEnabled } from "@/lib/portal/notify";
 import { transcriptionEnabled } from "@/lib/portal/transcribe";
 import { minutesEnabled } from "@/lib/portal/minutes";
@@ -17,6 +18,7 @@ export default async function System({ searchParams }: { searchParams: Promise<{
   const checks: [string, boolean, string][] = [
     ["Secret key (APP_SECRET)", !!process.env.APP_SECRET && process.env.APP_SECRET.length >= 32, "Encrypts files and two-factor secrets. Keep a copy somewhere safe: without it, stored files cannot be read."],
     ["Database", true, dbEngineName()],
+    ["File storage", s3Enabled() || !process.env.VERCEL, s3Enabled() ? `S3-compatible bucket "${process.env.STORAGE_S3_BUCKET}" (files encrypted before upload; large uploads go straight to the bucket)` : "This server's disk (PORTAL_DATA_DIR). Back it up nightly."],
     ["Email reminders (Brevo)", emailEnabled(), "BREVO_API_KEY and NOTIFY_FROM_EMAIL"],
     ["SMS reminders (Termii)", smsEnabled(), "TERMII_API_KEY and an approved TERMII_SENDER_ID"],
     ["Daily reminders schedule (CRON_SECRET)", !!process.env.CRON_SECRET, "Call /portal/api/cron/reminders every morning"],

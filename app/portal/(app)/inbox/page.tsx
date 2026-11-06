@@ -8,6 +8,7 @@ import { DOC_CATEGORIES } from "@/lib/portal/vocab";
 import { SOURCES } from "@/lib/portal/intake";
 import { Badge, Card, Empty, Flash, Note, PageHeader, btn, inputCls } from "@/components/portal/ui";
 import { Uploader } from "@/components/portal/Uploader";
+import { s3Enabled } from "@/lib/portal/storage";
 import { fileDocuments, removeFromInbox } from "./actions";
 
 export const metadata = { title: "Inbox" };
@@ -39,7 +40,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div className="space-y-6">
-          <Card title="Add files"><Uploader matters={matters} /></Card>
+          <Card title="Add files"><Uploader matters={matters} direct={s3Enabled()} /></Card>
 
           <Card title={`Waiting to be filed (${docs.length})`} pad={false}>
             {docs.length === 0 ? <Empty icon={<FolderInput className="h-8 w-8" />} title="Your inbox is empty" text="Files you save without choosing a matter appear here." /> : (

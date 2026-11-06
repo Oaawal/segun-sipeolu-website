@@ -7,6 +7,8 @@ import { TEMPLATE_CATEGORIES } from "@/lib/portal/vocab";
 import { KNOWN_FIELDS } from "@/lib/portal/templates";
 import { Badge, Card, Empty, Field, Flash, Note, PageHeader, Row, Select, btn } from "@/components/portal/ui";
 import { installStarters } from "./actions";
+import { s3Enabled } from "@/lib/portal/storage";
+import { FileField } from "@/components/portal/FileField";
 
 export const metadata = { title: "Templates" };
 
@@ -39,7 +41,7 @@ export default async function Templates({ searchParams }: { searchParams: Promis
             <Card title="Add a template">
               <form action="/portal/api/templates" method="post" encType="multipart/form-data" className="space-y-3">
                 <label className="block"><span className="mb-1.5 block text-[13px] font-semibold text-stone-700">Word document (.docx) <span className="text-maroon">*</span></span>
-                  <input type="file" name="file" accept=".docx" required className="block w-full rounded-lg border border-dashed border-stone-300 bg-cream/40 px-3 py-3 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-maroon file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" /></label>
+                  <FileField name="file" accept=".docx" required direct={s3Enabled()} className="block w-full rounded-lg border border-dashed border-stone-300 bg-cream/40 px-3 py-3 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-maroon file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" /></label>
                 <Field label="Title" name="title" placeholder="e.g. Notice of change of counsel" />
                 <Select label="Category" name="category" options={TEMPLATE_CATEGORIES} defaultValue="letter" />
                 <Field label="What it is for" name="description" />

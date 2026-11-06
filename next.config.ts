@@ -19,6 +19,9 @@ const nextConfig: NextConfig = {
   // The embedded Postgres (PGlite) ships WebAssembly and the pg driver uses
   // native modules: load both from node_modules instead of bundling them.
   serverExternalPackages: ["@electric-sql/pglite", "pg"],
+  // Email attachments and transcript files go through server actions (1 MB by
+  // default). On Vercel, which caps requests at 4.5 MB, files are staged in R2 first.
+  experimental: { serverActions: { bodySizeLimit: "20mb" } },
   async headers() {
     return [
       { source: "/portal", headers: portalHeaders },

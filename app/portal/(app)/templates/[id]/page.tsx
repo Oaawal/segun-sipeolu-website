@@ -11,6 +11,8 @@ import { KNOWN_FIELDS } from "@/lib/portal/templates";
 import { TEMPLATE_CATEGORIES } from "@/lib/portal/vocab";
 import { Card, Field, Flash, Note, PageHeader, Select, TextArea, btn, inputCls } from "@/components/portal/ui";
 import { updateTemplate } from "../actions";
+import { s3Enabled } from "@/lib/portal/storage";
+import { FileField } from "@/components/portal/FileField";
 
 export const metadata = { title: "Template" };
 
@@ -76,7 +78,7 @@ export default async function TemplatePage({ params, searchParams }: { params: P
               <form action="/portal/api/templates" method="post" encType="multipart/form-data" className="mt-4 space-y-2 border-t border-stone-100 pt-4">
                 <input type="hidden" name="id" value={t.id} />
                 <label className="block text-[13px] font-semibold text-stone-700">Replace with an updated .docx</label>
-                <input type="file" name="file" accept=".docx" required className="block w-full text-sm" />
+                <FileField name="file" accept=".docx" required direct={s3Enabled()} className="block w-full text-sm" />
                 <button className={btn.small}><Upload className="h-3.5 w-3.5" />Replace</button>
               </form>
             </Card>

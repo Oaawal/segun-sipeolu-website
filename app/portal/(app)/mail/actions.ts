@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/portal/auth";
 import { getMessage, mailAccount, mailDefaults, saveMailAccount, sendMail, safeFileName, testAccount } from "@/lib/portal/mail";
 import { resolveDestination, saveIncoming } from "@/lib/portal/intake";
 import { str } from "@/lib/portal/format";
+import { readUploads } from "@/lib/portal/uploads";
 
 type State = { error?: string } | undefined;
 
@@ -76,11 +77,9 @@ export async function sendMessage(_: State, fd: FormData): Promise<State> {
   if (!to) return { error: "Add at least one recipient." };
   const attachments: { filename: string; content: Buffer; contentType?: string }[] = [];
   let size = 0;
-  for (const f of fd.getAll("files")) {
-    if (typeof f === "object" && f && "arrayBuffer" in f && f.size) {
-      size += f.size;
-      attachments.push({ filename: safeFileName(f.name, "attachment"), content: Buffer.from(await f.arrayBuffer()), contentType: f.type || undefined });
-    }
+  for (const f of await readUploads(u.id, fd, "files")) {
+    size += f.size;
+    attachments.push({ filename: safeFileName(f.name, "attachment"), content: Buffer.from(await f.arrayBuffer()), contentType: f.type || undefined });
   }
   // Forwarding: bring the original's attachments along
   const fwdUid = Number(fd.get("fwd_uid"));

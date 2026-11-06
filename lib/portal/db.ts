@@ -20,8 +20,8 @@ export interface Queryable {
 
 interface Engine extends Queryable {
   transaction<R>(fn: (tx: Queryable) => Promise<R>): Promise<R>;
-  /** Run a script of several statements (migrations) atomically. */
-  script(sql: string, after: string, afterParams: unknown[]): Promise<void>;
+  /** Apply one migration atomically, unless another instance already has. Returns true if applied here. */
+  migration(id: string, sql: string): Promise<boolean>;
 }
 
 export function dataDir() {
@@ -35,7 +35,8 @@ async function createEngine(): Promise<Engine> {
     types.setTypeParser(20, (v: string) => Number(v)); // COUNT(*) and BIGSERIAL as numbers
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      max: Number(process.env.DATABASE_POOL_SIZE || 10),
+      // Serverless instances each hold a pool: keep them small (use Neon's pooled address)
+      max: Number(process.env.DATABASE_POOL_SIZE || (process.env.VERCEL ? 3 : 10)),
       ssl: process.env.DATABASE_SSL === "false" ? undefined : process.env.DATABASE_URL.includes("localhost") ? undefined : { rejectUnauthorized: process.env.DATABASE_SSL !== "no-verify" },
     });
     return {
@@ -43,13 +44,20 @@ async function createEngine(): Promise<Engine> {
         const r = await pool.query(sql, params as unknown[]);
         return { rows: r.rows };
       },
-      script: async (sql, after, afterParams) => {
+      migration: async (id, sql) => {
         const client = await pool.connect();
         try {
           await client.query("BEGIN");
+          // Several server instances may start at once (e.g. on Vercel): only one migrates, the others wait, then skip
+          await client.query("SELECT pg_advisory_xact_lock(7270001)");
+          if ((await client.query("SELECT 1 FROM schema_migrations WHERE id = $1", [id])).rows.length) {
+            await client.query("COMMIT");
+            return false;
+          }
           await client.query(sql); // no parameters: pg sends it as one simple query
-          await client.query(after, afterParams as unknown[]);
+          await client.query("INSERT INTO schema_migrations (id) VALUES ($1)", [id]);
           await client.query("COMMIT");
+          return true;
         } catch (err) {
           await client.query("ROLLBACK").catch(() => {});
           throw err;
@@ -75,6 +83,9 @@ async function createEngine(): Promise<Engine> {
     };
   }
 
+  if (process.env.VERCEL) {
+    throw new Error("On Vercel, set DATABASE_URL to a PostgreSQL database (e.g. Neon from the Vercel Marketplace): Vercel has no permanent disk for the built-in database.");
+  }
   const { PGlite } = await import("@electric-sql/pglite");
   const fs = await import("node:fs/promises");
   const dir = path.join(dataDir(), "db");
@@ -90,9 +101,11 @@ async function createEngine(): Promise<Engine> {
   return {
     query: (sql, params = []) => serial(async () => ({ rows: (await pg.query(sql, params as unknown[])).rows as never[] })),
     transaction: (fn) => serial(() => pg.transaction(async (t) => fn({ query: async (s, p = []) => ({ rows: (await t.query(s, p as unknown[])).rows as never[] }) }))),
-    script: (sql, after, afterParams) => serial(() => pg.transaction(async (t) => {
+    migration: (id, sql) => serial(() => pg.transaction(async (t) => {
+      if ((await t.query("SELECT 1 FROM schema_migrations WHERE id = $1", [id])).rows.length) return false;
       await t.exec(sql);
-      await t.query(after, afterParams as unknown[]);
+      await t.query("INSERT INTO schema_migrations (id) VALUES ($1)", [id]);
+      return true;
     })),
   };
 }
@@ -102,8 +115,7 @@ async function migrate(engine: Engine) {
   const done = new Set((await engine.query<{ id: string }>("SELECT id FROM schema_migrations")).rows.map((r) => r.id));
   for (const m of MIGRATIONS) {
     if (done.has(m.id)) continue;
-    await engine.script(m.sql, "INSERT INTO schema_migrations (id) VALUES ($1)", [m.id]);
-    console.log(`[portal] applied migration ${m.id}`);
+    if (await engine.migration(m.id, m.sql)) console.log(`[portal] applied migration ${m.id}`);
   }
 }
 

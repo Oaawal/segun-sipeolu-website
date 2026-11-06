@@ -3,6 +3,8 @@ import type { DocRow } from "@/lib/portal/data";
 import { DOC_CATEGORIES } from "@/lib/portal/vocab";
 import { fmtDateTime, fmtSize } from "@/lib/portal/format";
 import { removeDocument } from "@/app/portal/docs/actions";
+import { s3Enabled } from "@/lib/portal/storage";
+import { FileField } from "./FileField";
 import { Badge, Check, Empty, Field, Select, btn } from "./ui";
 
 export function UploadForm({ ownerType, ownerId, compact, seriesId }: { ownerType: string; ownerId: string; compact?: boolean; seriesId?: string }) {
@@ -13,7 +15,7 @@ export function UploadForm({ ownerType, ownerId, compact, seriesId }: { ownerTyp
       {seriesId && <input type="hidden" name="series_id" value={seriesId} />}
       <label className={compact ? "min-w-0 flex-1" : "block sm:col-span-2"}>
         {!compact && <span className="mb-1.5 block text-[13px] font-semibold text-stone-700">File <span className="text-maroon">*</span></span>}
-        <input type="file" name="file" required className="block w-full rounded-lg border border-dashed border-stone-300 bg-cream/40 px-3 py-3 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-maroon file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
+        <FileField name="file" required direct={s3Enabled()} className="block w-full rounded-lg border border-dashed border-stone-300 bg-cream/40 px-3 py-3 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-maroon file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
       </label>
       {!compact && (
         <>

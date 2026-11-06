@@ -8,9 +8,10 @@ import { putFile, uploadProblem, cleanName, mimeFor, ext } from "@/lib/portal/st
 import { transcriptionEnabled } from "@/lib/portal/transcribe";
 import { processRecording } from "@/lib/portal/meeting-pipeline";
 import { isUuid } from "@/lib/portal/format";
+import { readUploads } from "@/lib/portal/uploads";
 
 export const runtime = "nodejs";
-export const maxDuration = 800;
+export const maxDuration = 300;
 
 /**
  * Receive a meeting recording (recorded in the browser or uploaded), store it
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!m.consent_confirmed) return reply("Confirm that everyone was told the meeting is recorded.", 400);
   if (!transcriptionEnabled()) return reply("Transcription is not set up on this server yet (DEEPGRAM_API_KEY).", 400);
   const fd = await req.formData();
-  const file = fd.get("audio") as File | null;
+  const file = (await readUploads(u.id, fd, "audio"))[0] ?? null;
   const problem = uploadProblem(file, { audioOnly: true });
   if (problem) return reply(problem, 400);
   const f = file!;

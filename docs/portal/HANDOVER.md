@@ -65,9 +65,41 @@ The portal is part of this Next.js site. Two sound options:
 1. **One server (VPS, e.g. a Lagos or European cloud server)**: `npm ci && npm run build && npm start`, behind HTTPS (Caddy or Nginx). The built-in database and the files live in `PORTAL_DATA_DIR`. Back up that folder nightly.
 2. **Managed hosting (e.g. Railway or Render)** with a managed PostgreSQL: set `DATABASE_URL`, and mount a persistent volume for `PORTAL_DATA_DIR` (uploaded files).
 
-Serverless hosts without a persistent disk (e.g. Vercel) need `DATABASE_URL`, plus file storage moved to S3/R2. That is a small change in `lib/portal/storage.ts`.
+3. **Vercel** (where the site is today), with **Neon** for the database and **Cloudflare R2** for files. See *Deploying on Vercel* below.
 
 Settings are listed in `.env.example`. The minimum for production: `APP_SECRET`, `PORTAL_SETUP_TOKEN`, `PORTAL_URL`.
+
+### Deploying on Vercel (Neon + Cloudflare R2)
+
+Vercel has no permanent disk and refuses requests over 4.5 MB, so on Vercel the portal keeps its records in Neon (PostgreSQL) and its files in R2, and the browser sends uploads straight to R2. The portal still encrypts and fingerprints every file.
+
+1. **Database.** Vercel project, then *Storage* (or *Marketplace*), then *Neon*: create a database and connect it to the project. This sets `DATABASE_URL` for you. The tables are created on the first visit.
+2. **Files.** Cloudflare dashboard, then *R2*:
+   - Create a bucket, e.g. `ssa-portal` (location: closest to Lagos, e.g. Western Europe). Leave public access **off**.
+   - Bucket, then *Settings*, then *CORS policy*, and paste (use your real addresses):
+     ```json
+     [{ "AllowedOrigins": ["https://segun-sipeolu-website.vercel.app", "https://www.segunsipeolu.com"],
+        "AllowedMethods": ["PUT"], "AllowedHeaders": ["content-type"], "MaxAgeSeconds": 3600 }]
+     ```
+   - Bucket, then *Settings*, then *Object lifecycle rules*: delete objects with prefix `incoming/` after 1 day. These are uploads abandoned half-way; normal ones are removed straight away.
+   - *R2*, then *Manage API tokens*, then *Create API token*: permission *Object Read & Write*, limited to this bucket. Note the Access Key ID, the Secret Access Key, and the S3 endpoint `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`.
+3. **Settings.** Vercel project, then *Settings*, then *Environment Variables*, for Production (and Preview, to test a branch):
+
+   | Name | Value |
+   |---|---|
+   | `APP_SECRET` | 32+ random characters (keep a copy somewhere safe) |
+   | `PORTAL_SETUP_TOKEN` | a one-time code for creating the first account |
+   | `PORTAL_URL` | `https://segun-sipeolu-website.vercel.app` (or the final domain) |
+   | `CRON_SECRET` | random characters; Vercel sends it to the scheduled jobs |
+   | `STORAGE_S3_BUCKET` | `ssa-portal` |
+   | `STORAGE_S3_ENDPOINT` | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
+   | `STORAGE_S3_ACCESS_KEY_ID`, `STORAGE_S3_SECRET_ACCESS_KEY` | from the R2 token |
+
+   Then redeploy. Email, SMS, mail, transcription and AI settings are added the same way when the firm is ready (see `.env.example`).
+4. **Scheduled jobs.** `vercel.json` runs the morning reminders at 06:00 UTC (7am Lagos) and checks the email-to-the-portal mailbox at 06:15 UTC. Vercel's free plan runs scheduled jobs once a day; for email-to-the-portal more often, upgrade, or have a free external scheduler (e.g. cron-job.org) call `/portal/api/cron/mail-intake` with the `Authorization: Bearer <CRON_SECRET>` header every 15 minutes.
+5. **Limits on Vercel.** Uploads from the browser, Word templates, meeting recordings, document versions, register scans and email attachments go straight to R2, so their size is not limited by Vercel. Three paths still pass through Vercel and are limited to about 4.5 MB per file: sharing from a phone's Share menu, the Windows helper, and the Word add-in (Word documents are usually far smaller).
+
+**Check after setting up:** sign in, open a matter, and upload a file larger than 5 MB on its Documents tab. If it fails with "storage is not set to accept uploads from this site", the R2 CORS rule is missing or has the wrong address.
 
 ### First run
 1. Deploy with the settings above, then open `/portal`. It goes to **Set up**.

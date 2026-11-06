@@ -10,6 +10,8 @@ import { transcriptionEnabled } from "@/lib/portal/transcribe";
 import { minutesEnabled, type Minutes } from "@/lib/portal/minutes";
 import { Badge, Card, Field, Flash, Note, PageHeader, TextArea, btn, inputCls } from "@/components/portal/ui";
 import { Recorder } from "@/components/portal/Recorder";
+import { FileField } from "@/components/portal/FileField";
+import { s3Enabled } from "@/lib/portal/storage";
 import { confirmConsent, createTasksFromMinutes, markReviewed, regenerateMinutes, renameSpeakers, saveTranscript } from "../actions";
 
 export const metadata = { title: "Meeting" };
@@ -70,13 +72,13 @@ export default async function MeetingPage({ params, searchParams }: { params: Pr
           <div>
             <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wider text-stone-500">Record or upload audio</h2>
             {!transcriptionEnabled() ? <Note tone="info">Audio transcription is not switched on yet. The administrator adds a speech-to-text key (DEEPGRAM_API_KEY) on the server. Meanwhile, paste or upload a transcript.</Note>
-              : m.consent_confirmed ? <Recorder meetingId={m.id} /> : <Note tone="lock">Confirm consent above to enable recording.</Note>}
+              : m.consent_confirmed ? <Recorder meetingId={m.id} direct={s3Enabled()} /> : <Note tone="lock">Confirm consent above to enable recording.</Note>}
           </div>
           <Card title="Or add a transcript">
             <form action={saveTranscript} className="space-y-3" encType="multipart/form-data">
               <input type="hidden" name="id" value={m.id} />
               <TextArea label="Paste the transcript" name="transcript" rows={6} placeholder="Paste from Zoom, Teams, Google Meet, Otter or your own notes" />
-              <label className="block text-sm"><span className="mb-1.5 block text-[13px] font-semibold text-stone-700">…or upload a caption or text file (.vtt, .srt, .txt)</span><input type="file" name="file" accept=".vtt,.srt,.txt" className={inputCls} /></label>
+              <label className="block text-sm"><span className="mb-1.5 block text-[13px] font-semibold text-stone-700">…or upload a caption or text file (.vtt, .srt, .txt)</span><FileField name="file" accept=".vtt,.srt,.txt" direct={s3Enabled()} className={inputCls} /></label>
               <button className={btn.primary}>{minutesEnabled() ? <><Sparkles className="h-4 w-4" />Save and write minutes</> : "Save transcript"}</button>
             </form>
           </Card>

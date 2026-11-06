@@ -5,6 +5,7 @@ import { audit } from "@/lib/portal/audit";
 import { ownerAccess } from "@/lib/portal/documents";
 import { putFile, deleteFile, uploadProblem, cleanName, mimeFor } from "@/lib/portal/storage";
 import { isUuid } from "@/lib/portal/format";
+import { readUploads } from "@/lib/portal/uploads";
 import { DOC_CATEGORIES } from "@/lib/portal/vocab";
 
 export const runtime = "nodejs";
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
   const access = await ownerAccess(u, ownerType, ownerId);
   if (!access.ok || (u.role === "front_desk" && ownerType !== "service")) return back(req, "/portal", "denied");
 
-  const file = fd.get("file") as File | null;
+  const file = (await readUploads(u.id, fd, "file"))[0] ?? null;
   if (uploadProblem(file)) return back(req, access.back, "upload_failed");
   const f = file!;
   const name = cleanName(f.name);

@@ -7,6 +7,8 @@ import { fmtDateTime } from "@/lib/portal/format";
 import { ActionForm, SubmitButton } from "@/components/portal/ActionForm";
 import { Card, Field, PageHeader, TextArea, btn, inputCls } from "@/components/portal/ui";
 import { sendMessage } from "../actions";
+import { s3Enabled } from "@/lib/portal/storage";
+import { FileField } from "@/components/portal/FileField";
 
 export const metadata = { title: "New email" };
 
@@ -52,7 +54,7 @@ export default async function Compose({ searchParams }: { searchParams: Promise<
           <Field label="Cc" name="cc" defaultValue={cc} />
           <Field label="Subject" name="subject" defaultValue={subject} />
           <TextArea label="Message" name="body" rows={14} defaultValue={body} autoFocus />
-          <label className="block"><span className="mb-1.5 block text-[13px] font-semibold text-stone-700">Attach files{fwd ? " (the original attachments are included)" : ""}</span><input type="file" name="files" multiple className={inputCls} /></label>
+          <label className="block"><span className="mb-1.5 block text-[13px] font-semibold text-stone-700">Attach files{fwd ? " (the original attachments are included)" : ""}</span><FileField name="files" multiple direct={s3Enabled()} className={inputCls} /></label>
           <label className="block"><span className="mb-1.5 block text-[13px] font-semibold text-stone-700">Also file a copy on a matter</span>
             <select name="file_to" className={inputCls} defaultValue=""><option value="">No</option>{matters.map((x) => <option key={x.id} value={x.id}>{x.number} · {x.title}</option>)}</select></label>
           <div><SubmitButton className={btn.primary} pending="Sending…"><Send className="h-4 w-4" />Send</SubmitButton></div>

@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mic, Pause, Play, Square, Upload, Loader2 } from "lucide-react";
+import { stageFile } from "@/lib/portal/stage-client";
 
 /**
  * Records a meeting in the browser (phone or laptop microphone) and uploads
  * it for transcription. Audio stays in memory until uploaded; nothing is
  * saved on the device.
  */
-export function Recorder({ meetingId }: { meetingId: string }) {
+export function Recorder({ meetingId, direct = false }: { meetingId: string; direct?: boolean }) {
   const router = useRouter();
   const [state, setState] = useState<"idle" | "recording" | "paused" | "uploading" | "error">("idle");
   const [seconds, setSeconds] = useState(0);
@@ -80,7 +81,17 @@ export function Recorder({ meetingId }: { meetingId: string }) {
   async function upload(file: File) {
     setState("uploading");
     const fd = new FormData();
-    fd.append("audio", file);
+    if (direct) {
+      try {
+        fd.append("audio__staged", JSON.stringify(await stageFile(file)));
+      } catch (err) {
+        setError((err as Error).message);
+        setState("error");
+        return;
+      }
+    } else {
+      fd.append("audio", file);
+    }
     const res = await fetch(`/portal/api/meetings/${meetingId}/audio`, { method: "POST", body: fd, headers: { Accept: "application/json" } });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {

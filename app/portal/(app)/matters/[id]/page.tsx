@@ -10,6 +10,7 @@ import { MATTER_STATUS, MATTER_TYPES, MEETING_STATUS, PARTY_ROLES, PRACTICE_AREA
 import { Avatar, Badge, Card, Check, DueBadge, Empty, Field, Flash, Note, PageHeader, Row, Select, Tabs, TextArea, btn } from "@/components/portal/ui";
 import { DocumentList } from "@/components/portal/Documents";
 import { Uploader } from "@/components/portal/Uploader";
+import { s3Enabled } from "@/lib/portal/storage";
 import { HearingCard, HearingForm } from "@/components/portal/DiaryParts";
 import { TaskForm, TaskList } from "@/components/portal/Tasks";
 import { addMember, addNote, addParty, removeMember, removeParty, updateMatter } from "../actions";
@@ -142,7 +143,7 @@ export default async function MatterPage({ params, searchParams }: { params: Pro
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Card title={`Documents (${docs.length})`} pad={false}><DocumentList docs={docs} ownerType="matter" ownerId={m.id} canRemove canUpload /></Card>
         <div className="space-y-6">
-          <Card title="Add documents"><Uploader fixedMatter={m.id} /></Card>
+          <Card title="Add documents"><Uploader fixedMatter={m.id} direct={s3Enabled()} /></Card>
           {can(u, "templates.use") && <Link href="/portal/templates" className={`${btn.ghost} w-full`}>Create a document from a template</Link>}
           <Note tone="info">Files can also come from Word, your phone or Windows. See <Link href="/portal/connect" className="font-semibold underline">Save from anywhere</Link>.</Note>
         </div>

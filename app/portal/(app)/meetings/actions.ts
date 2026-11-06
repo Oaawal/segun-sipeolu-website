@@ -13,6 +13,7 @@ import { MEETING_KINDS } from "@/lib/portal/vocab";
 import { captionsToText } from "@/lib/portal/transcribe";
 import { minutesEnabled, type Minutes } from "@/lib/portal/minutes";
 import { summariseMeeting } from "@/lib/portal/meeting-pipeline";
+import { readUploads } from "@/lib/portal/uploads";
 
 async function meetingFor(id: unknown) {
   const u = await requirePermission("meetings.use");
@@ -53,7 +54,7 @@ export async function confirmConsent(fd: FormData) {
 export async function saveTranscript(fd: FormData) {
   const { u, m } = await meetingFor(fd.get("id"));
   let text = String(fd.get("transcript") || "").trim();
-  const file = fd.get("file") as File | null;
+  const file = (await readUploads(u.id, fd, "file"))[0] ?? null;
   const fromFile = !text && !!file && file.size > 0;
   if (fromFile) {
     if (file!.size > 5 * 1024 * 1024 || !/\.(vtt|srt|txt)$/i.test(file!.name)) redirect(`/portal/meetings/${m.id}?msg=upload_failed`);

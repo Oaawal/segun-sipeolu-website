@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { currentUser, requestMeta } from "@/lib/portal/auth";
 import { resolveDestination, saveIncoming, type Source } from "@/lib/portal/intake";
+import { readUploads } from "@/lib/portal/uploads";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
   if ("error" in dest) return NextResponse.json({ error: dest.error }, { status: 403 });
   const source: Source = fd.get("source") === "camera" ? "camera" : "browser";
   const { ip } = await requestMeta();
-  const files = fd.getAll("file").filter((f): f is File => typeof f === "object" && f !== null && "arrayBuffer" in f);
+  const files = await readUploads(u.id, fd, "file");
   if (!files.length) return NextResponse.json({ error: "No file received." }, { status: 400 });
   const results = [];
   for (const f of files.slice(0, 50)) {

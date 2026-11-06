@@ -6,6 +6,7 @@ import { audit } from "@/lib/portal/audit";
 import { putFile, deleteFile, cleanName, MAX_FILE_BYTES } from "@/lib/portal/storage";
 import { extractFields } from "@/lib/portal/templates";
 import { isUuid } from "@/lib/portal/format";
+import { readUploads } from "@/lib/portal/uploads";
 import { TEMPLATE_CATEGORIES } from "@/lib/portal/vocab";
 
 export const runtime = "nodejs";
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
   if (!u || !u.mfa_passed) return back(req, "/portal/login");
   if (!can(u, "templates.manage")) return back(req, "/portal/templates?msg=denied");
   const fd = await req.formData();
-  const file = fd.get("file") as File | null;
+  const file = (await readUploads(u.id, fd, "file"))[0] ?? null;
   const id = String(fd.get("id") || "");
   const to = isUuid(id) ? `/portal/templates/${id}` : "/portal/templates";
   if (!file || !file.size || file.size > MAX_FILE_BYTES || !/\.docx$/i.test(file.name)) return back(req, `${to}?msg=template_bad`);
