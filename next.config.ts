@@ -26,6 +26,11 @@ const nextConfig: NextConfig = {
     return [
       { source: "/portal", headers: portalHeaders },
       { source: "/portal/:path*", headers: portalHeaders },
+      // Client portal, payment and signing pages: private to the person with the link
+      { source: "/client", headers: portalHeaders },
+      { source: "/client/:path*", headers: portalHeaders },
+      { source: "/pay/:path*", headers: portalHeaders },
+      { source: "/sign/:path*", headers: portalHeaders },
     ];
   },
 };

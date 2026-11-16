@@ -12,6 +12,7 @@ export async function generateStaticParams() {
 
 export default async function AttorneyPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- profile fields vary between attorneys
   const a = attorneys.find((x) => x.slug === slug) as any;
   if (!a) notFound();
 
@@ -144,6 +145,7 @@ export default async function AttorneyPage({ params }: { params: Promise<{ slug:
                     <h2 className="mt-3 font-serif text-3xl text-[#2B0D17]">Education</h2>
                     <div className="mt-2 h-px w-12 bg-[#6D1F3B]/40" />
                     <div className="mt-6 space-y-4">
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                       {a.education.map((edu: any, i: number) => (
                         <div key={i} className="grid grid-cols-[160px,1fr] gap-6 border border-[#E8DED3] bg-white p-6">
                           <div className="border-r border-[#E8DED3] pr-6">

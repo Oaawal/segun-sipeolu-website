@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, startTransition, useActionState, useContext, type FormEvent, type ReactNode } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
 type State = { error?: string; ok?: string } | undefined;
 
@@ -26,6 +26,12 @@ export function ActionForm({ action, children, className }: { action: (s: State,
         <div role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
           <span>{state.error}</span>
+        </div>
+      )}
+      {state?.ok && (
+        <div role="status" className="mb-4 flex items-start gap-2 rounded-xl border border-green/20 bg-green/5 px-4 py-3 text-sm text-green">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none" />
+          <span>{state.ok}</span>
         </div>
       )}
       <Pending.Provider value={pending}>{children}</Pending.Provider>

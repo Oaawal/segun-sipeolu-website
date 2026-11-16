@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Briefcase, CalendarDays, Gavel, Inbox, ListChecks, Mic, Plus } from "lucide-react";
+import { Briefcase, CalendarDays, Gavel, Inbox, ListChecks, MessageSquare, Mic, Plus, Sparkles, Timer, UserPlus } from "lucide-react";
+import { one } from "@/lib/portal/db";
+import { assistantEnabled } from "@/lib/portal/assistant";
 import { requireUser } from "@/lib/portal/auth";
 import { dashboard } from "@/lib/portal/data";
 import { can } from "@/lib/portal/permissions";
@@ -12,6 +14,11 @@ export default async function Today({ searchParams }: { searchParams: Promise<{ 
   const u = await requireUser();
   const sp = await searchParams;
   const d = await dashboard(u);
+  const nudge = (await one<{ timer: string | null; client_msgs: number; client_msg_matter: string | null; enquiries: number }>(
+    `SELECT (SELECT m.number FROM timers t JOIN matters m ON m.id = t.matter_id WHERE t.user_id = $1) AS timer,
+            (SELECT COUNT(*)::int FROM client_messages x JOIN matter_members mm ON mm.matter_id = x.matter_id AND mm.user_id = $1 WHERE x.from_client AND x.read_at IS NULL) AS client_msgs,
+            (SELECT x.matter_id FROM client_messages x JOIN matter_members mm ON mm.matter_id = x.matter_id AND mm.user_id = $1 WHERE x.from_client AND x.read_at IS NULL ORDER BY x.created_at DESC LIMIT 1) AS client_msg_matter,
+            (SELECT COUNT(*)::int FROM enquiries WHERE status = 'new') AS enquiries`, [u.id]))!;
   const hour = Number(new Date().toLocaleString("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", hour12: false }));
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const t = today();
@@ -29,11 +36,19 @@ export default async function Today({ searchParams }: { searchParams: Promise<{ 
           <>
             {can(u, "matters.create") && <Link href="/portal/matters/new" className={btn.primary}><Plus className="h-4 w-4" />New matter</Link>}
             {can(u, "service.log_inward") && <Link href="/portal/register/new?direction=in" className={btn.ghost}><Inbox className="h-4 w-4" />Log a document served</Link>}
+            {can(u, "assistant.use") && assistantEnabled() && <Link href={`/portal/ask?q=${encodeURIComponent("Brief me for today: court, deadlines and anything overdue.")}`} className={btn.gold}><Sparkles className="h-4 w-4" />Brief me</Link>}
           </>
         }
       />
       <Flash msg={sp.msg} />
       {sp.denied && <div className="mb-5"><Note tone="danger">Your role does not allow that page. If you need access, ask the Managing Partner.</Note></div>}
+      {(nudge.timer || Number(nudge.client_msgs) > 0 || (can(u, "intake.view") && Number(nudge.enquiries) > 0)) && (
+        <div className="mb-6 flex flex-wrap gap-2">
+          {nudge.timer && <Link href="/portal/billing" className="inline-flex items-center gap-2 rounded-full bg-maroon px-3.5 py-1.5 text-sm font-semibold text-white"><Timer className="h-4 w-4 text-gold" />Timer running on {nudge.timer}</Link>}
+          {Number(nudge.client_msgs) > 0 && <Link href={nudge.client_msg_matter ? `/portal/matters/${nudge.client_msg_matter}?tab=client` : "/portal/matters"} className="inline-flex items-center gap-2 rounded-full border border-gold bg-gold/15 px-3.5 py-1.5 text-sm font-semibold text-maroon-dark"><MessageSquare className="h-4 w-4" />{nudge.client_msgs} new client message{Number(nudge.client_msgs) === 1 ? "" : "s"}</Link>}
+          {can(u, "intake.view") && Number(nudge.enquiries) > 0 && <Link href="/portal/enquiries" className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-3.5 py-1.5 text-sm font-semibold text-stone-800"><UserPlus className="h-4 w-4 text-maroon" />{nudge.enquiries} new enquir{Number(nudge.enquiries) === 1 ? "y" : "ies"}</Link>}
+        </div>
+      )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="In court today" value={todaySittings.length} note={todaySittings.length ? todaySittings.map((s) => s.court.split(",")[0]).slice(0, 2).join(" · ") : "No sittings"} href="/portal/diary" icon={<Gavel className="h-4 w-4" />} />

@@ -1,28 +1,31 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { currentUser } from "@/lib/portal/auth";
 import { can } from "@/lib/portal/permissions";
-import { q } from "@/lib/portal/db";
 import { audit } from "@/lib/portal/audit";
+import { isUuid } from "@/lib/portal/format";
+import { buildBackup, readBackup } from "@/lib/portal/backup";
 
 export const runtime = "nodejs";
 
-const TABLES = ["users", "clients", "matters", "matter_members", "parties", "matter_notes", "hearings", "service_register", "tasks", "documents", "meetings", "notifications", "audit_log", "templates", "contacts", "contact_matters", "entities", "entity_officers", "entity_shareholdings", "entity_filings", "assets", "systems", "system_access", "mail_accounts", "calendar_feeds", "api_tokens", "counters", "settings", "schema_migrations"];
-// Secrets never leave the server, even in a backup
-const STRIP: Record<string, string[]> = { users: ["password_hash", "totp_secret"], mail_accounts: ["password_enc"], calendar_feeds: ["token_hash"], api_tokens: ["token_hash"] };
-
-/** Full export of the records (not the files), for the Managing Partner. */
+/** Download a stored backup (?id=) or a fresh one, for the Managing Partner. */
 export async function GET(req: NextRequest) {
   const u = await currentUser();
   if (!u || !u.mfa_passed) return NextResponse.redirect(new URL("/portal/login", req.url));
   if (!can(u, "system.manage")) return new NextResponse("Forbidden", { status: 403 });
-  const out: Record<string, unknown[]> = {};
-  for (const t of TABLES) {
-    const rows = await q<Record<string, unknown>>(`SELECT * FROM ${t}`);
-    out[t] = rows.map((r) => { for (const k of STRIP[t] || []) delete r[k]; return r; });
+  const id = req.nextUrl.searchParams.get("id");
+  let body: Buffer | string;
+  let stamp: string;
+  if (isUuid(id)) {
+    const b = await readBackup(id);
+    if (!b) return new NextResponse("Not found", { status: 404 });
+    body = b.json;
+    stamp = new Date(b.created_at).toISOString();
+  } else {
+    body = (await buildBackup(u.email)).json;
+    stamp = new Date().toISOString();
   }
-  await audit({ userId: u.id, actor: u.email, action: "system.backup_downloaded", detail: { tables: TABLES.length } });
-  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
-  return new NextResponse(JSON.stringify({ createdAt: new Date().toISOString(), by: u.email, tables: out }, null, 1), {
-    headers: { "Content-Type": "application/json", "Content-Disposition": `attachment; filename="ssa-portal-backup-${stamp}.json"`, "Cache-Control": "no-store" },
+  await audit({ userId: u.id, actor: u.email, action: "system.backup_downloaded", detail: { stored: isUuid(id) ? id : null } });
+  return new NextResponse(typeof body === "string" ? body : new Uint8Array(body), {
+    headers: { "Content-Type": "application/json", "Content-Disposition": `attachment; filename="ssa-portal-backup-${stamp.slice(0, 16).replace(/[:T]/g, "-")}.json"`, "Cache-Control": "no-store" },
   });
 }

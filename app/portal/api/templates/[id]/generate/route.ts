@@ -1,3 +1,4 @@
+import { indexSoon } from "@/lib/portal/fulltext";
 import { NextResponse, type NextRequest } from "next/server";
 import { currentUser } from "@/lib/portal/auth";
 import { can, canSeeMatter } from "@/lib/portal/permissions";
@@ -54,5 +55,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await deleteFile(stored.key).catch(() => {});
     throw err;
   }
+  indexSoon();
   return new NextResponse(new Uint8Array(filled), { headers: docxResponseHeaders(fileName) });
 }

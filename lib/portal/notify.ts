@@ -35,7 +35,7 @@ export function normalisePhone(raw: string | null | undefined): string | null {
   return d.length >= 11 && d.length <= 15 ? d : null;
 }
 
-async function sendEmail(to: { email: string; name: string }, subject: string, html: string, text: string) {
+export async function sendEmail(to: { email: string; name: string }, subject: string, html: string, text: string) {
   const res = await fetch(`${process.env.BREVO_API_BASE || "https://api.brevo.com"}/v3/smtp/email`, {
     method: "POST",
     headers: { "api-key": process.env.BREVO_API_KEY!, "content-type": "application/json", accept: "application/json" },

@@ -64,7 +64,10 @@ export default async function Entry({ params, searchParams }: { params: Promise<
             <form action={updateEntry} className="space-y-4">
               <input type="hidden" name="id" value={e.id} />
               <Select label="Status" name="status" options={{ open: "Open: needs action", actioned: "Actioned: responded or complied", filed: "Filed: no action needed" }} defaultValue={e.status} />
-              <Field label="Response due" name="response_due" type="date" defaultValue={e.response_due || ""} />
+              <div>
+                <Field label="Response due" name="response_due" type="date" defaultValue={e.response_due || ""} />
+                <Link href={`/portal/deadlines?service=${e.id}`} className="mt-1 inline-block text-xs font-semibold text-maroon">Work it out from a rule of court →</Link>
+              </div>
               <Select label="Responsible" name="handled_by" options={staff.filter((s) => s.role !== "front_desk").map((s) => [s.id, s.full_name])} blank="Nobody" defaultValue={e.handled_by || ""} />
               <Select label="Matter" name="matter_id" options={matters.map((m) => [m.id, `${m.number} · ${m.title}`])} blank={e.matter_id ? "Keep current" : "Not linked"} defaultValue={e.matter_id && matters.some((m) => m.id === e.matter_id) ? e.matter_id : ""} />
               <Field label="Proof" name="proof" defaultValue={e.proof || ""} />

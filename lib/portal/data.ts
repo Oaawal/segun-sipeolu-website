@@ -306,7 +306,7 @@ export async function dashboard(u: Actor) {
 export interface SearchResults {
   matters: MatterRow[];
   clients: { id: string; name: string; kind: string; email: string | null }[];
-  documents: { id: string; title: string; file_name: string; owner_type: string; owner_id: string; matter_number: string | null; uploaded_at: string }[];
+  documents: { id: string; title: string; file_name: string; owner_type: string; owner_id: string; matter_number: string | null; uploaded_at: string; snippet?: string | null }[];
   service: ServiceRow[];
   hearings: HearingRow[];
   meetings: MeetingRow[];
@@ -323,14 +323,19 @@ export async function searchEverything(u: Actor, term: string): Promise<SearchRe
   const [matters, clients, documents, service, meetings] = await Promise.all([
     u.role === "front_desk" ? Promise.resolve([] as MatterRow[]) : listMatters(u, { status: "all", q: term }),
     can(u, "clients.view") ? q<SearchResults["clients"][number]>("SELECT id, name, kind, email FROM clients WHERE name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1 OR rc_number ILIKE $1 ORDER BY name LIMIT 20", [like]) : Promise.resolve([]),
+    // Titles and file names, plus what is written inside the documents (full-text, ranked).
     q<SearchResults["documents"][number]>(
-      `SELECT d.id, d.title, d.file_name, d.owner_type, d.owner_id, m.number AS matter_number, d.uploaded_at
-       FROM documents d LEFT JOIN matters m ON m.id = d.matter_id
-       WHERE d.deleted_at IS NULL AND (d.title ILIKE $2 OR d.file_name ILIKE $2 OR m.number ILIKE $2 OR m.title ILIKE $2)
+      `SELECT d.id, d.title, d.file_name, d.owner_type, d.owner_id, m.number AS matter_number, d.uploaded_at,
+              CASE WHEN dt.tsv @@ websearch_to_tsquery('english', $3)
+                THEN ts_headline('english', left(dt.content, 200000), websearch_to_tsquery('english', $3), 'MaxWords=28, MinWords=12, MaxFragments=2, FragmentDelimiter=" … ", StartSel=«, StopSel=»')
+              END AS snippet
+       FROM documents d LEFT JOIN matters m ON m.id = d.matter_id LEFT JOIN document_text dt ON dt.document_id = d.id
+       WHERE d.deleted_at IS NULL
+         AND (d.title ILIKE $2 OR d.file_name ILIKE $2 OR m.number ILIKE $2 OR m.title ILIKE $2 OR dt.tsv @@ websearch_to_tsquery('english', $3))
          AND d.version = (SELECT MAX(x.version) FROM documents x WHERE x.series_id = d.series_id AND x.deleted_at IS NULL)
          AND ${docsAccess}
-       ORDER BY d.uploaded_at DESC LIMIT 30`,
-      [u.id, like],
+       ORDER BY (d.title ILIKE $2) DESC, ts_rank(dt.tsv, websearch_to_tsquery('english', $3)) DESC NULLS LAST, d.uploaded_at DESC LIMIT 40`,
+      [u.id, like, term],
     ),
     listService(u, { q: term }),
     can(u, "meetings.use") ? listMeetings(u).then((r) => r.filter((x) => (x.title + " " + (x.participants || "") + " " + (x.matter_number || "")).toLowerCase().includes(term.toLowerCase())).slice(0, 15)) : Promise.resolve([] as MeetingRow[]),

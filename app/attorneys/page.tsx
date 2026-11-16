@@ -15,7 +15,7 @@ export default function AttorneysPage() {
             <p className="mb-4 text-xs uppercase tracking-[0.35em] text-[#D4B06A]">Team</p>
             <h1 className="font-serif text-5xl md:text-7xl">Our Team of Experts</h1>
             <p className="mt-6 max-w-3xl text-white/75">
-              Meet the professionals behind the firm's legal representation, advisory work, and client service.
+              Meet the professionals behind the firm&apos;s legal representation, advisory work, and client service.
             </p>
           </div>
         </section>

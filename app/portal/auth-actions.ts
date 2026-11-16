@@ -1,5 +1,6 @@
 "use server";
 
+import { checkNewDevice } from "@/lib/portal/devices";
 import { redirect } from "next/navigation";
 import { one, q, tx } from "@/lib/portal/db";
 import { audit } from "@/lib/portal/audit";
@@ -82,6 +83,8 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
   if (passed) {
     await q("UPDATE users SET last_login_at = now() WHERE id = $1", [u.id]);
     await audit({ userId: u.id, actor: u.email, action: "auth.login", entityType: "user", entityId: u.id });
+    const named = await one<{ full_name: string }>("SELECT full_name FROM users WHERE id = $1", [u.id]);
+    await checkNewDevice({ id: u.id, email: u.email, full_name: named?.full_name || u.email });
     redirect("/portal");
   }
   redirect(u.totp_enabled ? "/portal/login/verify" : "/portal/security/two-factor?required=1");
@@ -105,6 +108,7 @@ export async function verifyCodeAction(_: FormState, fd: FormData): Promise<Form
   await q("UPDATE sessions SET mfa_passed = TRUE WHERE token_hash = $1", [s.token_hash]);
   await q("UPDATE users SET failed_logins = 0, last_login_at = now() WHERE id = $1", [s.id]);
   await audit({ userId: s.id, actor: s.email, action: "auth.login", entityType: "user", entityId: s.id, detail: { twoFactor: true } });
+  await checkNewDevice(s);
   redirect("/portal");
 }
 

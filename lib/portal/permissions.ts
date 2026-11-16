@@ -49,6 +49,24 @@ export const PERMISSIONS = {
   "reports.view": ["admin", "partner"],
   "office.manage": ["admin"],
   "mail.use": ["admin", "partner", "lawyer", "litigation", "front_desk"],
+  // Billing: everyone who does fee-earning work records time on matters they can open;
+  // lawyers draft bills for their matters; only partners issue, take payments and run the client account.
+  "billing.record_time": ["admin", "partner", "lawyer", "litigation"],
+  "billing.draft": ["admin", "partner", "lawyer"],
+  "billing.manage": ["admin", "partner"],
+  "billing.settings": ["admin"],
+  // Client portal: partners give clients access; matter teams talk to clients and share files
+  "clientportal.invite": ["admin", "partner"],
+  "clientportal.use": ["admin", "partner", "lawyer", "litigation"],
+  "signatures.request": ["admin", "partner", "lawyer"],
+  // Enquiries: front desk logs them; lawyers clear conflicts, quote and take them on
+  "intake.view": ["admin", "partner", "lawyer", "front_desk"],
+  "intake.log": ["admin", "partner", "lawyer", "front_desk"],
+  "intake.decide": ["admin", "partner", "lawyer"],
+  "workflows.manage": ["admin", "partner"],
+  "deadlines.edit": ["admin", "partner", "lawyer"],
+  "deadlines.verify": ["admin", "partner"],
+  "assistant.use": ["admin", "partner", "lawyer", "litigation"],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permission = keyof typeof PERMISSIONS;

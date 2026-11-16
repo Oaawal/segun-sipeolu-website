@@ -1,3 +1,5 @@
+import { activeWorkflows } from "@/lib/portal/workflows";
+import { BILLING_TYPES } from "@/lib/portal/money";
 import Link from "next/link";
 import { ScanSearch } from "lucide-react";
 import { requirePermission } from "@/lib/portal/auth";
@@ -13,7 +15,7 @@ import { ConflictResults } from "../ConflictResults";
 
 export const metadata = { title: "New matter" };
 
-export default async function NewMatter({ searchParams }: { searchParams: Promise<{ client?: string; parties?: string; checked?: string; msg?: string }> }) {
+export default async function NewMatter({ searchParams }: { searchParams: Promise<{ client?: string; parties?: string; checked?: string; msg?: string; enquiry?: string; title?: string }> }) {
   const u = await requirePermission("matters.create");
   const sp = await searchParams;
   const clients = await q<{ id: string; name: string }>("SELECT id, name FROM clients ORDER BY name LIMIT 1000");
@@ -23,6 +25,8 @@ export default async function NewMatter({ searchParams }: { searchParams: Promis
   const groups = checked ? await Promise.all([client.name, ...parties].map(async (name) => ({ query: name, hits: await conflictSearch(u, name) }))) : [];
   if (checked) await audit({ userId: u.id, actor: u.email, action: "conflict.checked", detail: { names: [client.name, ...parties], hits: groups.reduce((n, g) => n + g.hits.length, 0), context: "new_matter" } });
   const staff = await staffList();
+  const workflows = await activeWorkflows();
+  const enquiry = isUuid(sp.enquiry) ? await one<{ id: string; number: string; summary: string; practice_area: string | null; quote_kobo: number | null }>("SELECT id, number, summary, practice_area, quote_kobo FROM enquiries WHERE id = $1", [sp.enquiry]) : null;
   const partners = staff.filter((s) => s.role === "admin" || s.role === "partner");
   const team = staff.filter((s) => s.role !== "front_desk" && s.id !== u.id);
 
@@ -34,6 +38,7 @@ export default async function NewMatter({ searchParams }: { searchParams: Promis
       <Card title="1 · Client and other parties" className="mb-6">
         <form className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <input type="hidden" name="checked" value="1" />
+          {enquiry && <input type="hidden" name="enquiry" value={enquiry.id} />}
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-semibold text-stone-700">Client <span className="text-maroon">*</span></span>
             <select name="client" required defaultValue={client?.id || ""} className={inputCls}>
@@ -59,7 +64,8 @@ export default async function NewMatter({ searchParams }: { searchParams: Promis
               <input type="hidden" name="client_id" value={client.id} />
               <input type="hidden" name="opposing" value={parties.join("\n")} />
               <input type="hidden" name="conflict_query" value={[client.name, ...parties].join("; ")} />
-              <Field label="Matter title" name="title" required className="md:col-span-2" defaultValue={parties[0] ? `${client.name} v. ${parties[0]}` : ""} placeholder="e.g. Adeyemi v. Lagos Homes Ltd, or Acquisition of Plot 14 Lekki" />
+              {enquiry && <input type="hidden" name="enquiry_id" value={enquiry.id} />}
+              <Field label="Matter title" name="title" required className="md:col-span-2" defaultValue={sp.title || (parties[0] ? `${client.name} v. ${parties[0]}` : "")} placeholder="e.g. Adeyemi v. Lagos Homes Ltd, or Acquisition of Plot 14 Lekki" />
               <Select label="Type" name="matter_type" options={MATTER_TYPES} defaultValue="litigation" />
               <Select label="Practice area" name="practice_area" options={PRACTICE_AREAS.map((p) => [p, p])} defaultValue="Litigation" />
               <Select label="Responsible partner" name="responsible_partner" options={partners.map((p) => [p.id, p.full_name])} blank="Choose…" defaultValue={u.role === "partner" || u.role === "admin" ? u.id : ""} />
@@ -69,7 +75,10 @@ export default async function NewMatter({ searchParams }: { searchParams: Promis
               <Field label="Suit number" name="suit_number" placeholder="e.g. ID/1234/2026" />
               <Field label="Judge" name="judge" placeholder="Hon. Justice …" />
               <div />
-              <TextArea label="Instructions and background" name="description" rows={4} className="md:col-span-2" placeholder="What the client wants, key facts, fee agreed, anything promised." />
+              <TextArea label="Instructions and background" name="description" rows={4} className="md:col-span-2" defaultValue={enquiry ? `From enquiry ${enquiry.number}:\n${enquiry.summary}` : ""} placeholder="What the client wants, key facts, fee agreed, anything promised." />
+              <Select label="Fee basis" name="billing_type" options={BILLING_TYPES} defaultValue={enquiry?.quote_kobo ? "fixed" : "hourly"} />
+              <Field label="Agreed fee (₦), if any" name="agreed_fee" inputMode="decimal" defaultValue={enquiry?.quote_kobo ? (Number(enquiry.quote_kobo) / 100).toFixed(2) : ""} />
+              {workflows.length > 0 && <Select label="Checklist" name="workflow_id" className="md:col-span-2" options={workflows.map((w) => [w.id, w.name])} blank="None: I will add tasks myself" hint="Creates the standard tasks for this kind of work, with due dates." />}
               {team.length > 0 && (
                 <fieldset className="md:col-span-2">
                   <legend className="mb-2 text-[13px] font-semibold text-stone-700">Matter team (you are added automatically)</legend>

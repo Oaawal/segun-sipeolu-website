@@ -1,5 +1,7 @@
 "use server";
 
+import { applyWorkflow } from "@/lib/portal/workflows";
+import { amountField, BILLING_TYPES } from "@/lib/portal/money";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { one, tx, nextNumber } from "@/lib/portal/db";
@@ -95,7 +97,13 @@ export async function createMatter(fd: FormData) {
       await t.query("INSERT INTO parties (id, matter_id, name, name_key, role, created_by) VALUES ($1,$2,$3,$4,$5,$6)", [crypto.randomUUID(), id, name.slice(0, 200), nameKey(name), type === "transaction" ? "counterparty" : "defendant", u.id]);
     }
     await t.query("INSERT INTO matter_notes (id, matter_id, kind, body, created_by) VALUES ($1,$2,'system',$3,$4)", [crypto.randomUUID(), id, `Matter opened. Conflict check cleared by ${u.full_name}${String(fd.get("conflict_query") || "") ? ` (searched: ${String(fd.get("conflict_query")).slice(0, 200)})` : ""}.`, u.id]);
-    await audit({ userId: u.id, actor: u.email, action: "matter.created", entityType: "matter", entityId: id, matterId: id, detail: { number, confidential, conflictCleared: true } }, t);
+    const fee = String(fd.get("agreed_fee") || "").trim() ? amountField(fd, "agreed_fee") : null;
+    await t.query("UPDATE matters SET billing_type = $2, agreed_fee_kobo = $3 WHERE id = $1", [id, oneOf(fd, "billing_type", BILLING_TYPES, "hourly"), fee]);
+    const enquiryId = String(fd.get("enquiry_id") || "");
+    if (isUuid(enquiryId)) await t.query("UPDATE enquiries SET matter_id = $1, client_id = $2, status = 'engaged', updated_at = now() WHERE id = $3", [id, clientId, enquiryId]);
+    const wf = String(fd.get("workflow_id") || "");
+    const steps = isUuid(wf) ? await applyWorkflow(t, id, wf, u.id) : 0;
+    await audit({ userId: u.id, actor: u.email, action: "matter.created", entityType: "matter", entityId: id, matterId: id, detail: { number, confidential, conflictCleared: true, enquiry: isUuid(enquiryId) ? enquiryId : undefined, checklist_tasks: steps || undefined } }, t);
     return number;
   });
   revalidatePath("/portal/matters");

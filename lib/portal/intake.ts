@@ -1,4 +1,5 @@
 import "server-only";
+import { indexSoon } from "./fulltext";
 import { one, tx } from "./db";
 import { audit } from "./audit";
 import { ownerAccess } from "./documents";
@@ -82,5 +83,6 @@ export async function saveIncoming(
     await deleteFile(stored.key).catch(() => {});
     throw err;
   }
+  indexSoon();
   return { id, title, file_name: name, size: bytes.length, sha256: stored.sha256, where: ownerType === "inbox" ? "inbox" : "matter" };
 }

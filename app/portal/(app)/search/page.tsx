@@ -22,7 +22,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const docHref = (d: { id: string }) => `/portal/api/files/${d.id}`;
   return (
     <>
-      <PageHeader title="Search" sub="Matters, clients, documents, court dates, served processes and meetings: everything you have access to" />
+      <PageHeader title="Search" sub="Matters, clients, documents (including the words inside them), court dates, served processes and meetings: everything you have access to" />
       <form className="relative mb-6 max-w-2xl">
         <Search className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-stone-400" />
         <input name="q" type="search" defaultValue={term} autoFocus placeholder="Name, suit number, matter number, document title…" className={`${inputCls} py-3.5 pl-11 text-base`} />
@@ -35,7 +35,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             {r.matters.map((m) => <Row key={m.id} href={`/portal/matters/${m.id}`}><div className="min-w-0 flex-1"><div className="truncate font-medium">{m.title}</div><div className="truncate text-xs text-stone-500">{m.number} · {m.client_name}{m.suit_number ? ` · ${m.suit_number}` : ""}</div></div></Row>)}
           </Section>
           <Section title="Documents" icon={<FileText className="h-4 w-4" />} count={r.documents.length}>
-            {r.documents.map((d) => <Row key={d.id} href={docHref(d)}><div className="min-w-0 flex-1"><div className="truncate font-medium">{d.title}</div><div className="truncate text-xs text-stone-500">{d.file_name}{d.matter_number ? ` · ${d.matter_number}` : ""} · {fmtDay(d.uploaded_at)}</div></div></Row>)}
+            {r.documents.map((d) => <Row key={d.id} href={docHref(d)}><div className="min-w-0 flex-1"><div className="truncate font-medium">{d.title}</div><div className="truncate text-xs text-stone-500">{d.file_name}{d.matter_number ? ` · ${d.matter_number}` : ""} · {fmtDay(d.uploaded_at)}</div>{d.snippet && <Snippet text={d.snippet} />}</div></Row>)}
           </Section>
           <Section title="Clients" icon={<Users className="h-4 w-4" />} count={r.clients.length}>
             {r.clients.map((c) => <Row key={c.id} href={`/portal/clients/${c.id}`}><div className="min-w-0 flex-1"><div className="truncate font-medium">{c.name}</div><div className="truncate text-xs text-stone-500">{c.email || c.kind}</div></div></Row>)}
@@ -54,4 +54,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       {r && <p className="mt-6 text-xs text-stone-400"><Link href="/portal/conflicts" className="hover:text-maroon">Checking a new client or opponent? Use the conflict check instead</Link>, which searches every matter, including restricted ones.</p>}
     </>
   );
+}
+
+/** A passage from inside the document, with the matched words highlighted (marked « » by the database). */
+function Snippet({ text }: { text: string }) {
+  const parts = text.replace(/\s+/g, " ").split(/(«[^»]*»)/g);
+  return <div className="mt-1 line-clamp-2 text-xs text-stone-600">{parts.map((p, i) => (p.startsWith("«") ? <mark key={i} className="rounded bg-gold/30 px-0.5 text-stone-900">{p.slice(1, -1)}</mark> : <span key={i}>{p}</span>))}</div>;
 }

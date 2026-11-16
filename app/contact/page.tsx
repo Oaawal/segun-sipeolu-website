@@ -8,10 +8,23 @@ import { useState } from "react";
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  // Sends the enquiry to the firm's practice portal, where it is logged and the team is told
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setSubmitted(true);
+    setSending(true);
+    setError("");
+    try {
+      const res = await fetch("/api/enquiry", { method: "POST", body: new FormData(e.currentTarget) });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "failed");
+      setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error && err.message !== "failed" ? err.message : `Your message could not be sent. Please call us or email ${firm.email}.`);
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -97,6 +110,8 @@ export default function ContactPage() {
                         <label className="mb-1.5 block text-xs uppercase tracking-[0.15em] text-gray-500">Full Name *</label>
                         <input
                           required
+                          name="name"
+                          maxLength={120}
                           placeholder="e.g. Adebayo Johnson"
                           className="w-full border border-gray-200 bg-[#FAF8F5] px-4 py-3 text-sm outline-none focus:border-[#6D1F3B]"
                         />
@@ -104,6 +119,8 @@ export default function ContactPage() {
                       <div>
                         <label className="mb-1.5 block text-xs uppercase tracking-[0.15em] text-gray-500">Phone Number</label>
                         <input
+                          name="phone"
+                          maxLength={40}
                           placeholder="+234 800 000 0000"
                           className="w-full border border-gray-200 bg-[#FAF8F5] px-4 py-3 text-sm outline-none focus:border-[#6D1F3B]"
                         />
@@ -114,6 +131,8 @@ export default function ContactPage() {
                       <label className="mb-1.5 block text-xs uppercase tracking-[0.15em] text-gray-500">Email Address *</label>
                       <input
                         required
+                        name="email"
+                        maxLength={254}
                         type="email"
                         placeholder="your@email.com"
                         className="w-full border border-gray-200 bg-[#FAF8F5] px-4 py-3 text-sm outline-none focus:border-[#6D1F3B]"
@@ -122,7 +141,7 @@ export default function ContactPage() {
 
                     <div>
                       <label className="mb-1.5 block text-xs uppercase tracking-[0.15em] text-gray-500">Practice Area</label>
-                      <select className="w-full border border-gray-200 bg-[#FAF8F5] px-4 py-3 text-sm outline-none focus:border-[#6D1F3B]">
+                      <select name="practice_area" className="w-full border border-gray-200 bg-[#FAF8F5] px-4 py-3 text-sm outline-none focus:border-[#6D1F3B]">
                         <option value="">Select a practice area</option>
                         {services.map((s) => (
                           <option key={s.slug} value={s.slug}>{s.title}</option>
@@ -134,17 +153,23 @@ export default function ContactPage() {
                       <label className="mb-1.5 block text-xs uppercase tracking-[0.15em] text-gray-500">Brief Description *</label>
                       <textarea
                         required
+                        name="summary"
+                        maxLength={5000}
                         rows={5}
                         placeholder="Briefly describe your legal matter..."
                         className="w-full border border-gray-200 bg-[#FAF8F5] px-4 py-3 text-sm outline-none focus:border-[#6D1F3B]"
                       />
                     </div>
 
+                    {/* Left empty by people; filled in by spam robots */}
+                    <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" />
+                    {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
                     <button
                       type="submit"
-                      className="w-full bg-[#6D1F3B] px-6 py-4 text-sm uppercase tracking-[0.2em] text-white transition hover:bg-[#2B0D17]"
+                      disabled={sending}
+                      className="w-full disabled:opacity-60 bg-[#6D1F3B] px-6 py-4 text-sm uppercase tracking-[0.2em] text-white transition hover:bg-[#2B0D17]"
                     >
-                      Send Message
+                      {sending ? "Sending…" : "Send Message"}
                     </button>
                   </form>
                 </>

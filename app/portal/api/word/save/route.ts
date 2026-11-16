@@ -1,3 +1,4 @@
+import { indexSoon } from "@/lib/portal/fulltext";
 import { NextResponse, type NextRequest } from "next/server";
 import { tokenUser, unauthorized } from "@/lib/portal/api-auth";
 import { ownerAccess } from "@/lib/portal/documents";
@@ -59,5 +60,6 @@ export async function POST(req: NextRequest) {
     await deleteFile(stored.key).catch(() => {});
     throw err;
   }
+  indexSoon();
   return NextResponse.json({ ok: true, document_id: id, series_id: isVersion ? series : id, version, title, sha256: stored.sha256 });
 }

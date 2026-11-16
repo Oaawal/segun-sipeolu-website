@@ -1,3 +1,4 @@
+import { indexSoon } from "@/lib/portal/fulltext";
 import { NextResponse, type NextRequest } from "next/server";
 import { currentUser } from "@/lib/portal/auth";
 import { tx, one } from "@/lib/portal/db";
@@ -57,5 +58,6 @@ export async function POST(req: NextRequest) {
     await deleteFile(stored.key).catch(() => {});
     throw err;
   }
+  indexSoon();
   return back(req, access.back, "uploaded");
 }

@@ -554,4 +554,324 @@ CREATE TABLE mail_accounts (
 );
 `,
   },
+  {
+    id: "0005_billing_clients_search",
+    sql: /* sql */ `
+-- ── Billing: time, disbursements, invoices, payments ──────────
+-- Money is stored in kobo (1 naira = 100 kobo) as whole numbers, never floats.
+ALTER TABLE users ADD COLUMN hourly_rate_kobo BIGINT;
+ALTER TABLE matters ADD COLUMN billing_type TEXT NOT NULL DEFAULT 'hourly' CHECK (billing_type IN ('hourly','fixed','retainer','contingent','pro_bono'));
+ALTER TABLE matters ADD COLUMN agreed_fee_kobo BIGINT;
+ALTER TABLE matters ADD COLUMN billing_note TEXT;
+ALTER TABLE matters ADD COLUMN share_with_client BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE clients ADD COLUMN billing_email TEXT;
+
+CREATE TABLE time_entries (
+  id           UUID PRIMARY KEY,
+  matter_id    UUID NOT NULL REFERENCES matters(id),
+  user_id      UUID NOT NULL REFERENCES users(id),
+  worked_on    DATE NOT NULL,
+  minutes      INTEGER NOT NULL CHECK (minutes > 0 AND minutes <= 1440),
+  description  TEXT NOT NULL,
+  rate_kobo    BIGINT NOT NULL DEFAULT 0,
+  billable     BOOLEAN NOT NULL DEFAULT TRUE,
+  invoice_id   UUID,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by   UUID,
+  deleted_at   TIMESTAMPTZ
+);
+CREATE INDEX time_entries_matter ON time_entries(matter_id, worked_on);
+CREATE INDEX time_entries_user ON time_entries(user_id, worked_on);
+
+-- One running timer per person
+CREATE TABLE timers (
+  user_id      UUID PRIMARY KEY REFERENCES users(id),
+  matter_id    UUID NOT NULL REFERENCES matters(id),
+  description  TEXT,
+  started_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE expenses (
+  id           UUID PRIMARY KEY,
+  matter_id    UUID NOT NULL REFERENCES matters(id),
+  incurred_on  DATE NOT NULL,
+  kind         TEXT NOT NULL DEFAULT 'other',   -- filing_fees, transport, courier, search_fees, printing, stamp_duty, other
+  description  TEXT NOT NULL,
+  amount_kobo  BIGINT NOT NULL CHECK (amount_kobo > 0),
+  billable     BOOLEAN NOT NULL DEFAULT TRUE,
+  invoice_id   UUID,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by   UUID,
+  deleted_at   TIMESTAMPTZ
+);
+CREATE INDEX expenses_matter ON expenses(matter_id);
+
+CREATE TABLE invoices (
+  id            UUID PRIMARY KEY,
+  number        TEXT UNIQUE,                    -- given when issued: SSA/INV/2026/0001
+  matter_id     UUID NOT NULL REFERENCES matters(id),
+  client_id     UUID NOT NULL REFERENCES clients(id),
+  status        TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','issued','part_paid','paid','void')),
+  issued_on     DATE,
+  due_on        DATE,
+  vat_rate_bp   INTEGER NOT NULL DEFAULT 750,   -- basis points: 750 = 7.5%
+  subtotal_kobo BIGINT NOT NULL DEFAULT 0,      -- fees + disbursements, before VAT
+  vat_kobo      BIGINT NOT NULL DEFAULT 0,
+  total_kobo    BIGINT NOT NULL DEFAULT 0,
+  paid_kobo     BIGINT NOT NULL DEFAULT 0,
+  notes         TEXT,
+  pay_token     TEXT UNIQUE,                    -- random; the client's payment link
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by    UUID,
+  issued_by     UUID,
+  voided_at     TIMESTAMPTZ,
+  voided_by     UUID,
+  void_reason   TEXT,
+  last_reminded_at TIMESTAMPTZ
+);
+CREATE INDEX invoices_status ON invoices(status, due_on);
+CREATE INDEX invoices_client ON invoices(client_id);
+
+CREATE TABLE invoice_lines (
+  id           UUID PRIMARY KEY,
+  invoice_id   UUID NOT NULL REFERENCES invoices(id),
+  position     INTEGER NOT NULL,
+  kind         TEXT NOT NULL CHECK (kind IN ('time','fee','expense')),
+  description  TEXT NOT NULL,
+  quantity     NUMERIC(10,2) NOT NULL DEFAULT 1,   -- hours for time lines
+  unit_kobo    BIGINT NOT NULL,
+  amount_kobo  BIGINT NOT NULL,
+  vatable      BOOLEAN NOT NULL DEFAULT TRUE,
+  source_id    UUID
+);
+CREATE INDEX invoice_lines_invoice ON invoice_lines(invoice_id, position);
+
+CREATE TABLE payments (
+  id            UUID PRIMARY KEY,
+  invoice_id    UUID NOT NULL REFERENCES invoices(id),
+  received_on   DATE NOT NULL,
+  amount_kobo   BIGINT NOT NULL CHECK (amount_kobo > 0),
+  method        TEXT NOT NULL,                  -- transfer, paystack, cheque, cash, pos, other
+  reference     TEXT,
+  provider_ref  TEXT UNIQUE,                    -- Paystack reference: a payment is never recorded twice
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by    UUID,
+  reversed_at   TIMESTAMPTZ,
+  reversed_by   UUID
+);
+CREATE INDEX payments_invoice ON payments(invoice_id);
+
+-- Client account: money held for clients (deposits, settlement sums),
+-- kept apart from the firm's own money. Entries are never edited; a mistake
+-- is corrected by a reversing entry. amount_kobo: + received, - paid out.
+CREATE TABLE client_ledger (
+  id           UUID PRIMARY KEY,
+  client_id    UUID NOT NULL REFERENCES clients(id),
+  matter_id    UUID REFERENCES matters(id),
+  entry_on     DATE NOT NULL,
+  kind         TEXT NOT NULL CHECK (kind IN ('receipt','payment','to_office','reversal')),
+  amount_kobo  BIGINT NOT NULL CHECK (amount_kobo <> 0),
+  description  TEXT NOT NULL,
+  reference    TEXT,
+  invoice_id   UUID,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by   UUID
+);
+CREATE INDEX client_ledger_client ON client_ledger(client_id, entry_on);
+CREATE TRIGGER client_ledger_no_update BEFORE UPDATE OR DELETE ON client_ledger
+  FOR EACH ROW EXECUTE FUNCTION audit_log_append_only();
+
+-- ── Client portal ──────────────────────────────────────────────
+-- Clients' own sign-ins, kept entirely apart from staff accounts.
+CREATE TABLE client_users (
+  id              UUID PRIMARY KEY,
+  client_id       UUID NOT NULL REFERENCES clients(id),
+  email           TEXT NOT NULL UNIQUE,
+  full_name       TEXT NOT NULL,
+  phone           TEXT,
+  password_hash   TEXT,
+  active          BOOLEAN NOT NULL DEFAULT TRUE,
+  failed_logins   INTEGER NOT NULL DEFAULT 0,
+  locked_until    TIMESTAMPTZ,
+  last_login_at   TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by      UUID
+);
+CREATE TABLE client_tokens (
+  token_hash     TEXT PRIMARY KEY,
+  client_user_id UUID NOT NULL REFERENCES client_users(id),
+  purpose        TEXT NOT NULL CHECK (purpose IN ('invite','reset')),
+  expires_at     TIMESTAMPTZ NOT NULL,
+  used_at        TIMESTAMPTZ,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE client_sessions (
+  token_hash     TEXT PRIMARY KEY,
+  client_user_id UUID NOT NULL REFERENCES client_users(id),
+  mfa_passed     BOOLEAN NOT NULL DEFAULT FALSE,   -- emailed sign-in code entered (when email is set up)
+  code_hash      TEXT,
+  code_expires   TIMESTAMPTZ,
+  code_tries     INTEGER NOT NULL DEFAULT 0,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at     TIMESTAMPTZ NOT NULL,
+  ip             TEXT,
+  user_agent     TEXT
+);
+CREATE TABLE client_messages (
+  id              UUID PRIMARY KEY,
+  matter_id       UUID NOT NULL REFERENCES matters(id),
+  from_client     BOOLEAN NOT NULL,
+  client_user_id  UUID REFERENCES client_users(id),
+  staff_user_id   UUID REFERENCES users(id),
+  body            TEXT NOT NULL,
+  document_id     UUID,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  read_at         TIMESTAMPTZ
+);
+CREATE INDEX client_messages_matter ON client_messages(matter_id, created_at);
+ALTER TABLE documents ADD COLUMN shared_with_client BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE documents ADD COLUMN from_client BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- ── Electronic signatures (click to sign) ──────────────────────
+CREATE TABLE signature_requests (
+  id             UUID PRIMARY KEY,
+  document_id    UUID NOT NULL REFERENCES documents(id),
+  matter_id      UUID REFERENCES matters(id),
+  signer_name    TEXT NOT NULL,
+  signer_email   TEXT NOT NULL,
+  message        TEXT,
+  token_hash     TEXT NOT NULL UNIQUE,
+  doc_sha256     TEXT NOT NULL,               -- the exact version sent; signing a changed file is refused
+  status         TEXT NOT NULL DEFAULT 'sent' CHECK (status IN ('sent','signed','declined','cancelled','expired')),
+  expires_at     TIMESTAMPTZ NOT NULL,
+  viewed_at      TIMESTAMPTZ,
+  signed_at      TIMESTAMPTZ,
+  signed_name    TEXT,
+  signed_ip      TEXT,
+  signed_ua      TEXT,
+  decline_reason TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by     UUID
+);
+CREATE INDEX signature_requests_matter ON signature_requests(matter_id);
+
+-- ── Enquiries: from first contact to engagement ────────────────
+CREATE TABLE enquiries (
+  id               UUID PRIMARY KEY,
+  number           TEXT NOT NULL UNIQUE,      -- ENQ/2026/0001
+  name             TEXT NOT NULL,
+  organisation     TEXT,
+  email            TEXT,
+  phone            TEXT,
+  practice_area    TEXT,
+  summary          TEXT NOT NULL,
+  other_parties    TEXT,
+  source           TEXT NOT NULL DEFAULT 'walk_in',  -- website, walk_in, phone, email, referral, other
+  status           TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','conflict_cleared','conflict_found','quoted','engaged','declined','no_response')),
+  assigned_to      UUID REFERENCES users(id),
+  conflict_note    TEXT,
+  conflict_by      UUID,
+  conflict_at      TIMESTAMPTZ,
+  quote_kobo       BIGINT,
+  quote_note       TEXT,
+  client_id        UUID REFERENCES clients(id),
+  matter_id        UUID REFERENCES matters(id),
+  decline_reason   TEXT,
+  ip               TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by       UUID,
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX enquiries_status ON enquiries(status, created_at);
+
+-- ── Matter checklists (workflows) ──────────────────────────────
+CREATE TABLE workflows (
+  id           UUID PRIMARY KEY,
+  name         TEXT NOT NULL,
+  matter_type  TEXT,
+  description  TEXT,
+  steps        TEXT NOT NULL,                 -- JSON: [{title, days, priority, kind}]
+  active       BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by   UUID,
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ── Deadline rules (court rules) and public holidays ───────────
+-- A rule cannot be used until a lawyer has confirmed the period against the
+-- current rules of court (verified_by set).
+CREATE TABLE deadline_rules (
+  id            UUID PRIMARY KEY,
+  court         TEXT NOT NULL,
+  trigger_event TEXT NOT NULL,                -- "Served with writ of summons"
+  action        TEXT NOT NULL,                -- "File statement of defence"
+  days          INTEGER NOT NULL CHECK (days > 0 AND days <= 365),
+  count_mode    TEXT NOT NULL DEFAULT 'calendar' CHECK (count_mode IN ('calendar','working')),
+  authority     TEXT,                         -- e.g. "Order 15 rule 1"
+  note          TEXT,
+  verified_by   UUID REFERENCES users(id),
+  verified_at   TIMESTAMPTZ,
+  active        BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by    UUID
+);
+CREATE TABLE holidays (
+  day    DATE PRIMARY KEY,
+  name   TEXT NOT NULL
+);
+
+-- ── Full-text search of document contents ──────────────────────
+CREATE TABLE document_text (
+  document_id  UUID PRIMARY KEY REFERENCES documents(id),
+  status       TEXT NOT NULL CHECK (status IN ('ok','empty','unsupported','failed')),
+  method       TEXT,                          -- docx, pdf, text, email, ocr
+  content      TEXT,
+  tsv          TSVECTOR,
+  error        TEXT,
+  indexed_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX document_text_tsv ON document_text USING GIN (tsv);
+
+-- ── Questions to the assistant (kept for accountability) ───────
+CREATE TABLE assistant_log (
+  id          UUID PRIMARY KEY,
+  user_id     UUID NOT NULL REFERENCES users(id),
+  question    TEXT NOT NULL,
+  answer      TEXT,
+  sources     TEXT,                           -- JSON
+  model       TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ── Security: known devices, errors ────────────────────────────
+CREATE TABLE known_devices (
+  user_id      UUID NOT NULL REFERENCES users(id),
+  device_hash  TEXT NOT NULL,
+  label        TEXT,
+  first_seen   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, device_hash)
+);
+CREATE TABLE error_log (
+  id         BIGSERIAL PRIMARY KEY,
+  at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  path       TEXT,
+  message    TEXT NOT NULL,
+  digest     TEXT,
+  detail     TEXT
+);
+CREATE INDEX error_log_at ON error_log(at);
+CREATE TABLE backups (
+  id           UUID PRIMARY KEY,
+  storage_key  TEXT NOT NULL,
+  size_bytes   BIGINT NOT NULL,
+  sha256       TEXT NOT NULL,
+  tables       INTEGER NOT NULL,
+  rows         INTEGER NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by   TEXT NOT NULL
+);
+`,
+  },
 ];

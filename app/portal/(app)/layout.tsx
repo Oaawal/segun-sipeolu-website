@@ -12,8 +12,11 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const u = await requireUser();
-  const counts = await one<{ tasks: number; due: number; inbox: number }>(
+  const counts = await one<{ tasks: number; due: number; inbox: number; enquiries: number; client_msgs: number; timer: boolean }>(
     `SELECT (SELECT COUNT(*) FROM tasks t WHERE t.status = 'open' AND t.assigned_to = $1 AND t.due_on <= CURRENT_DATE) AS tasks,
+            (SELECT COUNT(*) FROM enquiries WHERE status = 'new') AS enquiries,
+            (SELECT COUNT(*) FROM client_messages x JOIN matter_members mm ON mm.matter_id = x.matter_id AND mm.user_id = $1 WHERE x.from_client AND x.read_at IS NULL) AS client_msgs,
+            EXISTS (SELECT 1 FROM timers WHERE user_id = $1) AS timer,
             (SELECT COUNT(*) FROM documents d WHERE d.owner_type = 'inbox' AND d.owner_id = $1 AND d.deleted_at IS NULL) AS inbox,
             (SELECT COUNT(*) FROM service_register s LEFT JOIN matters m ON m.id = s.matter_id
               WHERE s.status = 'open' AND s.response_due <= CURRENT_DATE + 3 AND (s.handled_by = $1 OR (s.matter_id IS NOT NULL AND ${matterAccessSql(u)}))) AS due`,
@@ -27,17 +30,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { key: "today", label: "Today", href: "/portal" },
         { key: "inbox", label: "Inbox", href: "/portal/inbox", badge: counts?.inbox || 0 },
         ...(can(u, "mail.use") ? [{ key: "mail", label: "Mailbox", href: "/portal/mail" }] : []),
-        ...(u.role !== "front_desk" ? [{ key: "matters", label: "Matters", href: "/portal/matters" }] : []),
+        ...(can(u, "assistant.use") ? [{ key: "ask", label: "Ask", href: "/portal/ask" }] : []),
+        ...(u.role !== "front_desk" ? [{ key: "matters", label: "Matters", href: "/portal/matters", badge: counts?.client_msgs || 0 }] : []),
         { key: "diary", label: "Court diary", href: "/portal/diary" },
         { key: "register", label: "Service register", href: "/portal/register", badge: counts?.due || 0 },
         { key: "tasks", label: "Tasks", href: "/portal/tasks", badge: counts?.tasks || 0 },
         ...(can(u, "meetings.use") ? [{ key: "meetings", label: "Meetings & minutes", href: "/portal/meetings" }] : []),
+        ...(can(u, "billing.record_time") ? [{ key: "billing", label: counts?.timer ? "Time & billing ●" : "Time & billing", href: "/portal/billing" }] : []),
+        { key: "deadlines", label: "Deadlines", href: "/portal/deadlines" },
         ...(can(u, "templates.use") ? [{ key: "templates", label: "Templates", href: "/portal/templates" }] : []),
+        ...(can(u, "tasks.assign_others") ? [{ key: "checklists", label: "Checklists", href: "/portal/checklists" }] : []),
       ],
     },
     {
       name: "Clients & contacts",
       items: [
+        ...(can(u, "intake.view") ? [{ key: "enquiries", label: "Enquiries", href: "/portal/enquiries", badge: counts?.enquiries || 0 }] : []),
         { key: "clients", label: "Clients", href: "/portal/clients" },
         ...(can(u, "cosec.view") ? [{ key: "cosec", label: "Company secretarial", href: "/portal/cosec" }] : []),
         ...(can(u, "contacts.view") ? [{ key: "contacts", label: "Contacts", href: "/portal/contacts" }] : []),

@@ -76,3 +76,22 @@ export async function runRemindersNow() {
   const r = await runReminders({ actor: u.email });
   redirect(`/portal/admin/system?ran=${r.emails}-${r.sms}-${r.failed}`);
 }
+
+export async function backupNow() {
+  const u = await requirePermission("system.manage");
+  const { saveBackup } = await import("@/lib/portal/backup");
+  const b = await saveBackup(u.email);
+  await audit({ userId: u.id, actor: u.email, action: "system.backup_made", detail: b });
+  redirect("/portal/admin/system?msg=backup_saved");
+}
+
+export async function readDocumentsNow(fd: FormData) {
+  const u = await requirePermission("system.manage");
+  const { indexPending } = await import("@/lib/portal/fulltext");
+  // "Again" clears the failed ones (and, with everything, all of them) so they are read afresh
+  if (fd.get("retry") === "failed") await q("DELETE FROM document_text WHERE status IN ('failed','unsupported','empty')");
+  if (fd.get("retry") === "all") await q("DELETE FROM document_text");
+  const n = await indexPending(25, 45_000);
+  await audit({ userId: u.id, actor: u.email, action: "system.documents_read", detail: { read: n, retry: String(fd.get("retry") || "") } });
+  redirect("/portal/admin/system?msg=reindexed");
+}
