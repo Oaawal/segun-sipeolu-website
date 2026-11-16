@@ -17,7 +17,8 @@ import { today } from "./format";
 export async function runDaily() {
   const day = today();
   const out: Record<string, unknown> = {};
-  try { out.reminders = await runReminders({ day }); } catch (e) { out.reminders = `failed: ${(e as Error).message}`; }
+  // Reminder counts stay at the top level (people, emails, sms, failed), as before
+  try { Object.assign(out, await runReminders({ day })); } catch (e) { out.reminders = `failed: ${(e as Error).message}`; }
 
   try {
     const done = await one("SELECT 1 FROM job_runs WHERE job = 'backup' AND run_date = $1", [day]);

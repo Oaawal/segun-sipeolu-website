@@ -36,7 +36,7 @@ export default async function ClientMatterPage({ params, searchParams }: { param
     <>
       <Link href="/client" className="text-sm text-stone-500 hover:text-maroon">← Your matters</Link>
       <h1 className="mt-2 font-serif text-3xl font-semibold text-maroon-dark">{m.title}</h1>
-      <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-stone-500">{m.number}<Badge tone={m.status === "closed" ? "grey" : "green"}>{MATTER_STATUS[m.status as keyof typeof MATTER_STATUS]}</Badge>{m.partner_name && <span>· Partner: {m.partner_name}</span>}</div>
+      <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-stone-500">{m.number}<Badge tone={m.status === "closed" ? "grey" : "green"}>{MATTER_STATUS[m.status as keyof typeof MATTER_STATUS]}</Badge>{m.partner_name && <span>Partner: {m.partner_name}</span>}</div>
       {sp.msg === "sent" && <div className="mt-4"><Note tone="ok">Sent. Your lawyer has been told.</Note></div>}
       {sp.msg === "file" && <div className="mt-4"><Note tone="danger">That file could not be sent. Check its type and size.</Note></div>}
       {sigs.length > 0 && <div className="mt-4"><Note tone="warn">A document is waiting for your signature: {sigs.map((s) => s.title).join(", ")}. Use the signing link we emailed you.</Note></div>}
