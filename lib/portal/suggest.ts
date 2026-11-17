@@ -38,7 +38,7 @@ export async function suggest(u: Actor, term: string): Promise<Suggestion[]> {
   return [
     ...docs.map((d): Suggestion => ({
       kind: "document", id: d.id, title: d.title, ext: ext(d.file_name), snippet: d.in_name ? null : d.snippet,
-      detail: [d.folder, d.matter_number || (d.owner_type === "inbox" ? "Your inbox" : d.owner_type === "service" ? "Service register" : d.owner_type === "meeting" ? "Meeting" : null), d.file_name].filter(Boolean).join(" · "),
+      detail: [d.folder, d.matter_number || (d.owner_type === "inbox" ? "Your inbox" : d.owner_type === "personal" ? "Personal files" : d.owner_type === "office" ? "Office files" : d.owner_type === "service" ? "Service register" : d.owner_type === "meeting" ? "Meeting" : null), d.file_name].filter(Boolean).join(" · "),
       href: `/portal/api/files/${d.id}`,
     })),
     ...matters.map((m): Suggestion => ({ kind: "matter", id: m.id, title: m.title, detail: `${m.number} · ${m.client}`, href: `/portal/matters/${m.id}` })),

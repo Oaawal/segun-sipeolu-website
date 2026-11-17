@@ -41,7 +41,7 @@ export default async function People({ searchParams }: { searchParams: Promise<{
   const origin = process.env.PORTAL_URL?.replace(/\/$/, "") || `${h.get("x-forwarded-proto") || "http"}://${h.get("host")}`;
   const link = raw ? { user: people.find((p) => p.id === raw.split(":")[0]), url: `${origin}/portal/invite/${raw.split(":")[1]}` } : null;
   const roleOpts = Object.entries(ROLES).map(([k, v]) => [k, v.label]);
-  const desigOpts = [["", "None"], ...Object.entries(DESIGNATIONS).map(([k, v]) => [k, `${v.label} (${ROLES[v.forRole].label})`])];
+  const desigOpts = [["", "None"], ...Object.entries(DESIGNATIONS).map(([k, v]) => [k, v.forRole ? `${v.label} (${ROLES[v.forRole].label})` : v.label])];
 
   return (
     <>

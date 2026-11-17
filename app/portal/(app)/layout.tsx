@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LogOut, Menu, Search, UserCog } from "lucide-react";
 import { requireUser } from "@/lib/portal/auth";
-import { can, invitableRoles, ROLES } from "@/lib/portal/permissions";
+import { can, canRestore, invitableRoles, ROLES } from "@/lib/portal/permissions";
 import { one } from "@/lib/portal/db";
 import { matterAccessSql } from "@/lib/portal/permissions";
 import { Nav, type NavGroup } from "@/components/portal/Nav";
@@ -31,6 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       name: "Work",
       items: [
         { key: "today", label: "Today", href: "/portal" },
+        { key: "files", label: "Office files", href: "/portal/files" },
         { key: "inbox", label: "Inbox", href: "/portal/inbox", badge: counts?.inbox || 0 },
         ...(can(u, "mail.use") ? [{ key: "mail", label: "Mailbox", href: "/portal/mail" }] : []),
         ...(can(u, "assistant.use") ? [{ key: "ask", label: "Ask", href: "/portal/ask" }] : []),
@@ -62,6 +63,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ...(can(u, "office.manage") ? [{ key: "office", label: "Office & IT", href: "/portal/office" }] : []),
         { key: "connect", label: "Save from anywhere", href: "/portal/connect" },
         ...(invitableRoles(u).length ? [{ key: "invitations", label: "Invitation codes", href: "/portal/invitations" }] : []),
+        ...(canRestore(u) ? [{ key: "deleted", label: "Deleted files", href: "/portal/deleted" }] : []),
         ...(can(u, "documents.review_duplicates") ? [{ key: "duplicates", label: "Duplicates", href: "/portal/duplicates", badge: counts?.dups || 0 }] : []),
       ],
     },

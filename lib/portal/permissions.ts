@@ -71,14 +71,21 @@ export const PERMISSIONS = {
 export type Permission = keyof typeof PERMISSIONS;
 
 /**
- * Designations sit on top of a role. They do not open any extra files; they
- * only let the Head of Litigation and Senior Counsel issue invitation codes.
+ * Designations sit on top of a role. They do not open any extra files: the
+ * Head of Litigation and Senior Counsel can issue invitation codes, and the
+ * IT officer can bring back deleted documents.
  */
-export type Designation = "head_of_litigation" | "senior_counsel";
-export const DESIGNATIONS: Record<Designation, { label: string; forRole: Role }> = {
+export type Designation = "head_of_litigation" | "senior_counsel" | "it_officer";
+export const DESIGNATIONS: Record<Designation, { label: string; forRole: Role | null }> = {
   head_of_litigation: { label: "Head of Litigation", forRole: "litigation" },
   senior_counsel: { label: "Senior Counsel", forRole: "lawyer" },
+  it_officer: { label: "IT officer", forRole: null },
 };
+
+/** The Managing Partner and the IT officer can bring back deleted documents. */
+export function canRestore(u: { role: Role; designation?: Designation | null }) {
+  return u.role === "admin" || u.designation === "it_officer";
+}
 
 /**
  * Who may issue invitation codes, and for which roles. Nobody can invite

@@ -30,12 +30,16 @@ export const SOURCES = {
 } as const;
 export type Source = keyof typeof SOURCES;
 
-export type Destination = { kind: "inbox" } | { kind: "matter"; matterId: string };
+export type OfficeFolder = "ongoing" | "concluded" | "correspondence";
+export const OFFICE_FOLDERS: Record<OfficeFolder, string> = { ongoing: "Ongoing matters", concluded: "Concluded matters", correspondence: "Correspondence" };
+export type Destination = { kind: "inbox" } | { kind: "personal" } | { kind: "office"; folder: OfficeFolder } | { kind: "matter"; matterId: string };
 
 /** Work out where files go from a form value: "inbox", a matter id, or a matter / suit number. */
 export async function resolveDestination(u: Actor, value: string | null | undefined): Promise<Destination | { error: string }> {
   const v = String(value || "").trim();
   if (!v || v.toLowerCase() === "inbox") return { kind: "inbox" };
+  if (v === "personal") return { kind: "personal" };
+  if (v.startsWith("office:") && v.slice(7) in OFFICE_FOLDERS) return { kind: "office", folder: v.slice(7) as OfficeFolder };
   let id = isUuid(v) ? v : null;
   if (!id) {
     const hit = await one<{ id: string }>("SELECT id FROM matters WHERE lower(number) = lower($1) OR lower(suit_number) = lower($1) LIMIT 1", [v]);
@@ -73,9 +77,9 @@ export async function saveIncoming(
   try {
     await tx(async (t) => {
       await t.query(
-        `INSERT INTO documents (id, owner_type, owner_id, matter_id, series_id, version, title, category, file_name, mime_type, size_bytes, sha256, storage_key, uploaded_by, source, folder)
-         VALUES ($1,$2,$3,$4,$1,1,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-        [id, ownerType, ownerId, access.matterId, title, category, name, mimeFor(name), bytes.length, stored.sha256, stored.key, u.id, opts.source, folder],
+        `INSERT INTO documents (id, owner_type, owner_id, matter_id, series_id, version, title, category, file_name, mime_type, size_bytes, sha256, storage_key, uploaded_by, source, folder, office_folder)
+         VALUES ($1,$2,$3,$4,$1,1,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+        [id, ownerType, ownerId, access.matterId, title, category, name, mimeFor(name), bytes.length, stored.sha256, stored.key, u.id, opts.source, folder, opts.destination.kind === "office" ? opts.destination.folder : null],
       );
       if (access.matterId) {
         await t.query("INSERT INTO matter_notes (id, matter_id, kind, body, created_by) VALUES ($1,$2,'system',$3,$4)",
@@ -90,5 +94,5 @@ export async function saveIncoming(
   indexSoon();
   const dup = await checkFileDuplicate(id);
   const of = dup ? await describeOriginal(u, dup.ofId) : null;
-  return { id, title, file_name: name, size: bytes.length, sha256: stored.sha256, where: ownerType === "inbox" ? "inbox" : "matter", ...(dup ? { duplicate: { match: dup.match, of_title: of!.title, of_where: of!.where } } : {}) };
+  return { id, title, file_name: name, size: bytes.length, sha256: stored.sha256, where: ownerType, ...(dup ? { duplicate: { match: dup.match, of_title: of!.title, of_where: of!.where } } : {}) };
 }

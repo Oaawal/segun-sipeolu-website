@@ -5,7 +5,7 @@ import { one, tx } from "@/lib/portal/db";
 import { audit } from "@/lib/portal/audit";
 import { requirePermission } from "@/lib/portal/auth";
 import { isUuid } from "@/lib/portal/format";
-import { purgeIfUnused, reviewableSql, scanAllForDuplicates } from "@/lib/portal/dedupe";
+import { reviewableSql, scanAllForDuplicates } from "@/lib/portal/dedupe";
 
 /** The flagged copy, if it is in this reviewer's queue (litigation team; walls and private inboxes respected). */
 async function flagged(fd: FormData) {
@@ -27,8 +27,7 @@ export async function removeDuplicate(fd: FormData) {
     if (d.matter_id) await t.query("INSERT INTO matter_notes (id, matter_id, kind, body, created_by) VALUES ($1,$2,'system',$3,$4)", [crypto.randomUUID(), d.matter_id, `Duplicate copy removed by the litigation team: ${d.title} (the original is kept)`, u.id]);
     await audit({ userId: u.id, actor: u.email, action: "document.duplicate_removed", entityType: "document", entityId: d.id, matterId: d.matter_id, detail: { title: d.title, match: d.match, original: d.duplicate_of } }, t);
   });
-  // A same-file copy already shares the original's storage; a same-words copy has its own, which is freed now
-  await purgeIfUnused(d.id).catch(() => false);
+  // Like any deleted document, it can be brought back for 60 days; then its storage is freed
   redirect("/portal/duplicates?msg=duplicate_removed");
 }
 

@@ -72,7 +72,7 @@ export function reviewableSql() {
   return `NOT EXISTS (
     SELECT 1 FROM documents z LEFT JOIN matters zm ON zm.id = z.matter_id
     WHERE z.id IN (x.document_id, x.duplicate_of)
-      AND (z.owner_type = 'inbox'
+      AND (z.owner_type IN ('inbox','personal')
         OR (zm.confidential AND NOT EXISTS (SELECT 1 FROM matter_members mm WHERE mm.matter_id = zm.id AND mm.user_id = $1)))
   )`;
 }
@@ -132,14 +132,21 @@ export async function scanAllForDuplicates(): Promise<{ file: number; content: n
   return { file, content };
 }
 
-/** Free the stored copy of a removed duplicate, unless any other document still uses it. */
-export async function purgeIfUnused(documentId: string): Promise<boolean> {
-  const d = await one<{ storage_key: string }>("SELECT storage_key FROM documents WHERE id = $1 AND deleted_at IS NOT NULL AND purged_at IS NULL", [documentId]);
-  if (!d) return false;
-  const shared = await one("SELECT 1 FROM documents WHERE storage_key = $1 AND id <> $2", [d.storage_key, documentId]);
-  const template = await one("SELECT 1 FROM templates WHERE storage_key = $1", [d.storage_key]);
-  if (shared || template) return false;
-  await deleteFile(d.storage_key);
-  await q("UPDATE documents SET purged_at = now() WHERE id = $1", [documentId]);
-  return true;
+/**
+ * Erase documents deleted more than 60 days ago: they can no longer be
+ * brought back. A stored file is only deleted when no other document that is
+ * still kept (or still recoverable) uses it.
+ */
+export async function purgeExpired(limit = 500): Promise<number> {
+  const rows = await q<{ id: string; storage_key: string }>(
+    "SELECT id, storage_key FROM documents WHERE deleted_at < now() - interval '60 days' AND purged_at IS NULL ORDER BY deleted_at LIMIT $1", [limit]);
+  for (const d of rows) {
+    const inUse = await one(
+      "SELECT 1 FROM documents WHERE storage_key = $1 AND id <> $2 AND purged_at IS NULL AND (deleted_at IS NULL OR deleted_at >= now() - interval '60 days')", [d.storage_key, d.id]);
+    const template = await one("SELECT 1 FROM templates WHERE storage_key = $1", [d.storage_key]);
+    if (!inUse && !template) await deleteFile(d.storage_key).catch(() => {});
+    await q("UPDATE documents SET purged_at = now() WHERE id = $1", [d.id]);
+    await q("DELETE FROM document_text WHERE document_id = $1", [d.id]);
+  }
+  return rows.length;
 }

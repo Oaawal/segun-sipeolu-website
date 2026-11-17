@@ -57,7 +57,9 @@ function size(n: number) {
  * Each file uploads on its own with a progress bar, to the person's inbox or
  * to a matter. Files go straight to encrypted storage; nothing stays in the browser.
  */
-export function Uploader({ matters, fixedMatter, direct = false }: { matters?: { id: string; number: string; title: string }[]; fixedMatter?: string; direct?: boolean }) {
+/** fixedMatter (or destination): a matter id, "personal" or "office:<folder>"; with it, there is no "Save to" choice. */
+export function Uploader({ matters, fixedMatter, destination, direct = false }: { matters?: { id: string; number: string; title: string }[]; fixedMatter?: string; destination?: string; direct?: boolean }) {
+  fixedMatter = fixedMatter ?? destination;
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [over, setOver] = useState(false);
@@ -169,7 +171,7 @@ export function Uploader({ matters, fixedMatter, direct = false }: { matters?: {
       >
         <UploadCloud className={`h-10 w-10 ${over ? "text-maroon" : "text-stone-400"}`} />
         <div className="font-semibold text-stone-800">Drop files or folders here</div>
-        <div className="text-sm text-stone-500">Any number of files, whole folders with their subfolders, or .zip files · PDF, Word, Excel, images, audio, email and more · up to 100 MB each</div>
+        <div className="text-sm text-stone-500">Files, folders or .zip · up to 100 MB each</div>
         <div className="mt-1 flex flex-wrap justify-center gap-2">
           <button type="button" onClick={() => pick.current?.click()} className="inline-flex items-center gap-2 rounded-lg bg-maroon px-4 py-2.5 text-sm font-semibold text-white hover:bg-maroon-light"><UploadCloud className="h-4 w-4" />Choose files</button>
           <button type="button" onClick={() => folder.current?.click()} className="hidden items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 hover:border-maroon/40 sm:inline-flex"><FolderUp className="h-4 w-4" />Choose a folder</button>
@@ -177,7 +179,7 @@ export function Uploader({ matters, fixedMatter, direct = false }: { matters?: {
         </div>
         <input ref={pick} type="file" multiple className="sr-only" onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
         <input ref={folder} type="file" multiple className="sr-only" {...{ webkitdirectory: "", directory: "" }} onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
-        <label className="mt-1 flex items-center gap-2 text-xs text-stone-500"><input type="checkbox" checked={unpack} onChange={(e) => setUnpack(e.target.checked)} className="h-3.5 w-3.5 accent-maroon" />Unpack .zip files into separate documents (e.g. a folder downloaded from Google Drive)</label>
+        <label className="mt-1 flex items-center gap-2 text-xs text-stone-500"><input type="checkbox" checked={unpack} onChange={(e) => setUnpack(e.target.checked)} className="h-3.5 w-3.5 accent-maroon" />Unpack .zip files</label>
         <input ref={camera} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { add(e.target.files, "camera"); e.target.value = ""; }} />
       </div>
 

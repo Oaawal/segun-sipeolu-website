@@ -23,6 +23,14 @@ export async function ownerAccess(u: Actor, ownerType: string, ownerId: string):
     const mt = await loadMeeting(u, ownerId);
     return { ok: !!mt, matterId: mt?.matter_id ?? null, back: `/portal/meetings/${ownerId}` };
   }
+  if (ownerType === "office") {
+    // Office files: every member of staff
+    return { ok: true, matterId: null, back: "/portal/files" };
+  }
+  if (ownerType === "personal") {
+    // Personal files are their owner's alone
+    return { ok: ownerId === u.id, matterId: null, back: "/portal/files?folder=personal" };
+  }
   if (ownerType === "inbox") {
     // A person's inbox is theirs alone
     return { ok: ownerId === u.id, matterId: null, back: "/portal/inbox" };

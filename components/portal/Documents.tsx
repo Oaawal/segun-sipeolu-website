@@ -64,7 +64,7 @@ export function DocumentList({ docs, ownerType, ownerId, canRemove, canUpload }:
                 <div className="break-all font-mono text-[11px] text-stone-400">SHA-256 {d.sha256}</div>
                 <a href={`/portal/api/files/${d.id}?download=1`} className={btn.small}>Download</a>
                 {canUpload && <UploadForm ownerType={ownerType} ownerId={ownerId} compact seriesId={d.series_id} />}
-                {canRemove && <form action={removeDocument}><input type="hidden" name="id" value={d.id} /><button className="text-xs font-semibold text-red-700 hover:underline">Remove from list</button></form>}
+                {canRemove && <form action={removeDocument}><input type="hidden" name="id" value={d.id} /><button className="text-xs font-semibold text-red-700 hover:underline">Delete</button></form>}
               </div>
             </details>
           )}

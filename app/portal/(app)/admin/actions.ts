@@ -20,7 +20,9 @@ async function issueLink(userId: string, purpose: "reset", by: string) {
 
 const designationOf = (fd: FormData, role: string) => {
   const d = String(fd.get("designation") || "");
-  return d in DESIGNATIONS && DESIGNATIONS[d as Designation].forRole === role ? d : null;
+  if (!(d in DESIGNATIONS)) return null;
+  const forRole = DESIGNATIONS[d as Designation].forRole;
+  return !forRole || forRole === role ? d : null;
 };
 
 /** Approve an account someone created without a code, choosing its role. */

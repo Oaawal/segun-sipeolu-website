@@ -950,4 +950,23 @@ ALTER TABLE templates ADD COLUMN visible_to TEXT;   -- JSON list of roles; NULL 
 ALTER TABLE templates ADD COLUMN mime_type TEXT;
 `,
   },
+  {
+    id: "0008_office_files",
+    sql: /* sql */ `
+-- ── Office files ───────────────────────────────────────────────
+-- Shared folders every member of staff can see (ongoing matters, concluded
+-- matters, correspondence), and each person's own Personal files.
+ALTER TABLE documents DROP CONSTRAINT documents_owner_type_check;
+ALTER TABLE documents ADD CONSTRAINT documents_owner_type_check CHECK (owner_type IN ('matter','service','meeting','inbox','office','personal'));
+ALTER TABLE documents ADD COLUMN office_folder TEXT CHECK (office_folder IN ('ongoing','concluded','correspondence'));
+CREATE INDEX documents_office ON documents(office_folder, uploaded_at) WHERE owner_type = 'office';
+
+-- Deleted documents can be brought back for 60 days, then their files are erased
+CREATE INDEX documents_deleted ON documents(deleted_at) WHERE deleted_at IS NOT NULL;
+
+-- IT officer: can bring back deleted documents (with the Managing Partner)
+ALTER TABLE users DROP CONSTRAINT users_designation_check;
+ALTER TABLE users ADD CONSTRAINT users_designation_check CHECK (designation IN ('head_of_litigation','senior_counsel','it_officer'));
+`,
+  },
 ];

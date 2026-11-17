@@ -46,7 +46,7 @@ export default async function Duplicates({ searchParams }: { searchParams: Promi
                   <div className="mt-2 text-sm text-stone-700">
                     Same as <a href={`/portal/api/files/${r.duplicate_of}?review=1`} target="_blank" rel="noopener" className="font-semibold text-maroon hover:underline">{r.of_title}</a> in {where(r.of_owner, r.of_matter)}, saved {fmtDateTime(r.of_uploaded)}.
                   </div>
-                  <div className="mt-1 text-xs text-stone-500">{r.storage_shared ? "Takes no extra storage: it already shares the original's stored copy." : `Removing it frees ${fmtSize(Number(r.size_bytes))}.`}</div>
+                  <div className="mt-1 text-xs text-stone-500">{r.storage_shared ? "Takes no extra storage: it already shares the original's stored copy." : `Removing it frees ${fmtSize(Number(r.size_bytes))} (after 60 days, when it can no longer be brought back).`}</div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <form action={removeDuplicate}><input type="hidden" name="id" value={r.id} /><button className={btn.danger}><Trash2 className="h-4 w-4" />Remove this copy</button></form>
@@ -57,7 +57,7 @@ export default async function Duplicates({ searchParams }: { searchParams: Promi
           ))}
         </div>
       )}
-      <div className="mt-6"><Note tone="info">Removing a copy keeps the original, notes it on the matter and records who removed it{Number(done[0]?.n) ? ` (${done[0].n} removed so far${Number(done[0].freed) ? `, ${fmtSize(Number(done[0].freed))} freed` : ""})` : ""}. Opening a document here to compare is recorded. Copies on walled-off matters only appear to team members of that matter, and private inboxes are never shown. No emails are sent about duplicates.</Note></div>
+      <div className="mt-6"><Note tone="info">Removing a copy keeps the original. The Managing Partner or IT officer can bring a removed copy back within 60 days{Number(done[0]?.n) ? ` (${done[0].n} removed so far${Number(done[0].freed) ? `, ${fmtSize(Number(done[0].freed))} freed` : ""})` : ""}.</Note></div>
     </>
   );
 }
