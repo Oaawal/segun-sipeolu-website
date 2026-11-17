@@ -1,11 +1,13 @@
 import { cookies, headers } from "next/headers";
-import { UserPlus } from "lucide-react";
+import Link from "next/link";
+import { KeyRound } from "lucide-react";
 import { requirePermission } from "@/lib/portal/auth";
 import { q } from "@/lib/portal/db";
-import { ROLES, PERMISSIONS, type Role } from "@/lib/portal/permissions";
+import { DESIGNATIONS, ROLES, PERMISSIONS, type Designation, type Role } from "@/lib/portal/permissions";
 import { ago } from "@/lib/portal/format";
 import { Avatar, Badge, Card, Field, Flash, Note, PageHeader, Select, btn } from "@/components/portal/ui";
-import { inviteUser, resetUser, updateUser } from "../actions";
+import { fmtDateTime } from "@/lib/portal/format";
+import { approveUser, rejectUser, resetUser, updateUser } from "../actions";
 
 export const metadata = { title: "People & access" };
 
@@ -19,18 +21,27 @@ const PERM_LABELS: Record<string, string> = {
   "contacts.view": "Contacts directory", "contacts.edit": "Add and edit contacts", "templates.use": "Generate documents from templates",
   "templates.manage": "Manage precedents and templates", "cosec.view": "Company secretarial register", "cosec.edit": "Edit company secretarial records",
   "reports.view": "Partner reports", "office.manage": "Office and IT register", "mail.use": "Own mailbox in the portal",
+  "templates.view": "Browse and preview templates and reference documents",
+  "billing.record_time": "Record time and disbursements", "billing.draft": "Draft invoices", "billing.manage": "Issue invoices, record payments and receipts, client account",
+  "billing.settings": "Hourly rates and invoice settings", "intake.view": "See enquiries", "intake.log": "Log enquiries", "intake.decide": "Clear conflicts, quote and take on enquiries",
+  "workflows.manage": "Manage matter checklists", "deadlines.edit": "Add court-rule periods", "deadlines.verify": "Confirm court-rule periods and holidays",
+  "assistant.use": "Ask the assistant", "documents.review_duplicates": "Review duplicate documents",
 };
 
 export default async function People({ searchParams }: { searchParams: Promise<{ msg?: string; link?: string }> }) {
   const me = await requirePermission("users.manage");
   const sp = await searchParams;
-  const people = await q<{ id: string; email: string; full_name: string; role: Role; title: string | null; phone: string | null; active: boolean; totp_enabled: boolean; last_login_at: string | null; password_hash: string | null; locked_until: string | null }>(
-    "SELECT id, email, full_name, role, title, phone, active, totp_enabled, last_login_at, password_hash, locked_until FROM users ORDER BY active DESC, full_name",
+  const all = await q<{ id: string; email: string; full_name: string; role: Role; title: string | null; phone: string | null; active: boolean; totp_enabled: boolean; last_login_at: string | null; has_password: boolean; locked_until: string | null; designation: Designation | null; account_status: string; requested_role: Role | null; signup_note: string | null; created_at: string }>(
+    "SELECT id, email, full_name, role, title, phone, active, totp_enabled, last_login_at, password_hash IS NOT NULL AS has_password, locked_until, designation, account_status, requested_role, signup_note, created_at FROM users WHERE account_status <> 'rejected' ORDER BY active DESC, full_name",
   );
+  const pending = all.filter((p) => p.account_status === "pending");
+  const people = all.filter((p) => p.account_status === "active");
   const raw = sp.link ? (await cookies()).get("ssa_new_link")?.value : undefined;
   const h = await headers();
   const origin = process.env.PORTAL_URL?.replace(/\/$/, "") || `${h.get("x-forwarded-proto") || "http"}://${h.get("host")}`;
   const link = raw ? { user: people.find((p) => p.id === raw.split(":")[0]), url: `${origin}/portal/invite/${raw.split(":")[1]}` } : null;
+  const roleOpts = Object.entries(ROLES).map(([k, v]) => [k, v.label]);
+  const desigOpts = [["", "None"], ...Object.entries(DESIGNATIONS).map(([k, v]) => [k, `${v.label} (${ROLES[v.forRole].label})`])];
 
   return (
     <>
@@ -38,10 +49,35 @@ export default async function People({ searchParams }: { searchParams: Promise<{
       <Flash msg={sp.msg} />
       {link?.user && (
         <div className="mb-6 rounded-2xl border-2 border-gold bg-gold/10 p-5">
-          <div className="font-semibold text-maroon-dark">Sign-in link for {link.user.full_name}</div>
-          <p className="mt-1 text-sm text-stone-700">Send this to {link.user.email} privately (WhatsApp or email). It works once and expires in 72 hours. It is shown only now.</p>
+          <div className="font-semibold text-maroon-dark">Password reset link for {link.user.full_name}</div>
+          <p className="mt-1 text-sm text-stone-700">Give this to {link.user.email} privately. It works once and expires in 72 hours. It is shown only now.</p>
           <code className="mt-3 block select-all break-all rounded-lg bg-white p-3 font-mono text-sm">{link.url}</code>
         </div>
+      )}
+      {pending.length > 0 && (
+        <Card title={`Waiting for approval (${pending.length})`} className="mb-6" pad={false}>
+          {pending.map((p) => (
+            <div key={p.id} className="border-t border-stone-100 px-5 py-4 first:border-t-0">
+              <div className="flex flex-wrap items-center gap-3">
+                <Avatar name={p.full_name} />
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold">{p.full_name}</div>
+                  <div className="text-xs text-stone-500">{[p.email, p.title, p.phone].filter(Boolean).join(" · ")} · asked {fmtDateTime(p.created_at)} as {p.requested_role ? ROLES[p.requested_role]?.label : "—"}</div>
+                  {p.signup_note && <div className="mt-1 text-sm text-stone-700">&ldquo;{p.signup_note}&rdquo;</div>}
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-end gap-2 pl-12">
+                <form action={approveUser} className="flex flex-wrap items-end gap-2">
+                  <input type="hidden" name="id" value={p.id} />
+                  <Select label="Role" name="role" options={roleOpts} defaultValue={p.requested_role || "front_desk"} />
+                  <Select label="Designation" name="designation" options={desigOpts} defaultValue="" />
+                  <button className={btn.primary}>Approve</button>
+                </form>
+                <form action={rejectUser}><input type="hidden" name="id" value={p.id} /><button className={btn.danger}>Refuse</button></form>
+              </div>
+            </div>
+          ))}
+        </Card>
       )}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <Card title={`Team (${people.filter((p) => p.active).length} active)`} pad={false}>
@@ -55,7 +91,8 @@ export default async function People({ searchParams }: { searchParams: Promise<{
                 </div>
                 <div className="flex flex-wrap justify-end gap-1.5">
                   <Badge tone={p.role === "admin" ? "maroon" : p.role === "partner" ? "gold" : "grey"}>{ROLES[p.role].label}</Badge>
-                  {!p.active ? <Badge>Deactivated</Badge> : !p.password_hash ? <Badge tone="amber">Invited</Badge> : p.totp_enabled ? <Badge tone="green">2FA on</Badge> : <Badge tone="amber">No 2FA</Badge>}
+                  {p.designation && <Badge tone="blue">{DESIGNATIONS[p.designation].label}</Badge>}
+                  {!p.active ? <Badge>Deactivated</Badge> : !p.has_password ? <Badge tone="amber">Invited</Badge> : p.totp_enabled ? <Badge tone="green">2FA on</Badge> : <Badge tone="amber">No 2FA</Badge>}
                   {p.locked_until && new Date(p.locked_until) > new Date() && <Badge tone="red">Locked</Badge>}
                 </div>
               </div>
@@ -67,26 +104,22 @@ export default async function People({ searchParams }: { searchParams: Promise<{
                     <Field label="Name" name="full_name" defaultValue={p.full_name} required />
                     <Field label="Title" name="title" defaultValue={p.title || ""} />
                     <Field label="Phone" name="phone" defaultValue={p.phone || ""} />
-                    <Select label="Role" name="role" options={Object.entries(ROLES).map(([k, v]) => [k, v.label])} defaultValue={p.role} />
+                    <Select label="Role" name="role" options={roleOpts} defaultValue={p.role} />
+                    <Select label="Designation" name="designation" options={desigOpts} defaultValue={p.designation || ""} hint="Lets them issue invitation codes" />
                     <Select label="Access" name="active" options={[["1", "Can sign in"], ["0", "Deactivated"]]} defaultValue={p.active ? "1" : "0"} />
                     <div className="flex items-end gap-2"><button className={btn.primary}>Save</button></div>
                   </form>
-                  <form action={resetUser} className="mt-2"><input type="hidden" name="id" value={p.id} /><button className={btn.small}>Reset password and 2FA (new sign-in link)</button></form>
+                  <form action={resetUser} className="mt-2"><input type="hidden" name="id" value={p.id} /><button className={btn.small}>Reset password and 2FA (new link)</button></form>
                 </details>
               )}
             </div>
           ))}
         </Card>
         <div className="space-y-6">
-          <Card title="Invite someone">
-            <form action={inviteUser} className="space-y-3">
-              <Field label="Full name" name="full_name" required />
-              <Field label="Work email" name="email" type="email" required />
-              <Field label="Title" name="title" placeholder="e.g. Associate, Litigation clerk" />
-              <Field label="Mobile (for SMS reminders)" name="phone" inputMode="tel" />
-              <Select label="Role" name="role" options={Object.entries(ROLES).map(([k, v]) => [k, v.label])} defaultValue="lawyer" />
-              <button className={btn.primary}><UserPlus className="h-4 w-4" />Create sign-in link</button>
-            </form>
+          <Card title="Bringing someone in">
+            <p className="text-sm text-stone-600">New colleagues create their own account at <strong>/portal/signup</strong>. With an invitation code their account is ready at once; without one it waits here for your approval.</p>
+            <Link href="/portal/invitations" className={`${btn.primary} mt-4`}><KeyRound className="h-4 w-4" />Make an invitation code</Link>
+            <p className="mt-3 text-xs text-stone-500">Partners, Senior Counsel and the Head of Litigation can also make codes, for roles with no more access than their own. Set designations when editing a person.</p>
           </Card>
           <Note tone="lock">Deactivating someone signs them out everywhere and revokes their Word connection at once. Their work, notes and history stay on record.</Note>
         </div>

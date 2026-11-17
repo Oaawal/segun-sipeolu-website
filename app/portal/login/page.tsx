@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthCard } from "@/components/portal/AuthCard";
 import { ActionForm, SubmitButton } from "@/components/portal/ActionForm";
@@ -22,7 +23,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         <Field label="Password" name="password" type="password" autoComplete="current-password" required />
         <SubmitButton className={`${btn.primary} w-full`} pending="Signing in…">Sign in</SubmitButton>
       </ActionForm>
-      <p className="mt-5 text-xs text-stone-500">Forgotten your password? Ask the Managing Partner to send you a new sign-in link.</p>
+      <p className="mt-5 text-xs text-stone-500">New here? <Link href="/portal/signup" className="font-semibold text-maroon">Create an account</Link>. Forgotten your password? Ask the Managing Partner for a reset link.</p>
     </AuthCard>
   );
 }

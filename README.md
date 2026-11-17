@@ -39,7 +39,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 The site includes a private staff portal at `/portal`: matters, conflict
 checks, court diary, service register, tasks, encrypted documents, meeting
-transcription with AI minutes, Word export and a Word add-in, and email/SMS
+transcription with AI minutes, Word export and a Word add-in, and email
 reminders, with role-based access and a tamper-evident audit trail.
 
 - Setup, hosting, security and handover: [`docs/portal/HANDOVER.md`](docs/portal/HANDOVER.md)

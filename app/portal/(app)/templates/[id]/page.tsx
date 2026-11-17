@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
-import { Download, FileSignature, Upload, Wand2 } from "lucide-react";
+import { BookOpen, Download, FileSignature, Lock, Upload, Wand2 } from "lucide-react";
 import { requirePermission } from "@/lib/portal/auth";
-import { can } from "@/lib/portal/permissions";
+import { can, ROLES } from "@/lib/portal/permissions";
+import { canSeeTemplate, visibleRoles, visibilityLabel } from "@/lib/portal/template-access";
+import { audit } from "@/lib/portal/audit";
+import { VisibilityField } from "../VisibilityField";
 import { one, q } from "@/lib/portal/db";
 import { pickableMatters } from "@/lib/portal/data";
 import { matterFacts } from "@/lib/portal/guards";
@@ -19,25 +22,33 @@ export const metadata = { title: "Template" };
 const LONG = /facts|description|body|details|terms|reasons|address/;
 
 export default async function TemplatePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ msg?: string; matter?: string }> }) {
-  const u = await requirePermission("templates.use");
+  const u = await requirePermission("templates.view");
   const { id } = await params;
   const sp = await searchParams;
   if (!isUuid(id)) notFound();
-  const t = await one<{ id: string; title: string; category: keyof typeof TEMPLATE_CATEGORIES; description: string | null; fields: string | null; active: boolean; file_name: string; updated_at: string }>("SELECT * FROM templates WHERE id = $1", [id]);
-  if (!t) notFound();
+  const t = await one<{ id: string; title: string; category: keyof typeof TEMPLATE_CATEGORIES; description: string | null; fields: string | null; active: boolean; file_name: string; updated_at: string; kind: string; visible_to: string | null }>("SELECT * FROM templates WHERE id = $1", [id]);
+  if (!t || !canSeeTemplate(u, t.visible_to) || (!t.active && !can(u, "templates.manage"))) notFound();
+  await audit({ userId: u.id, actor: u.email, action: "template.viewed", entityType: "template", entityId: t.id });
+  const fillable = t.kind === "fillable" && can(u, "templates.use");
   const fields: string[] = JSON.parse(t.fields || "[]");
   const custom = fields.filter((f) => !KNOWN_FIELDS[f]);
   const usesService = fields.some((f) => f.startsWith("service."));
-  const matters = await pickableMatters(u);
+  const matters = fillable ? await pickableMatters(u) : [];
   const m = sp.matter ? await matterFacts(u, sp.matter) : null;
   const chosen = m && canSeeMatter(u, { confidential: m.confidential, isMember: m.is_member }) ? m : null;
   const service = chosen && usesService ? await q<{ id: string; number: string; title: string; served_on: string }>("SELECT id, number, title, served_on FROM service_register WHERE matter_id = $1 AND direction = 'out' ORDER BY served_on DESC", [chosen.id]) : [];
   return (
     <>
-      <PageHeader back={{ href: "/portal/templates", label: "Templates" }} title={<span className="flex items-center gap-3"><FileSignature className="h-7 w-7 text-maroon" />{t.title}</span>} sub={t.description || TEMPLATE_CATEGORIES[t.category]}
-        actions={<a href={`/portal/api/templates/${t.id}/file`} className={btn.ghost}><Download className="h-4 w-4" />Blank template</a>} />
+      <PageHeader back={{ href: "/portal/templates", label: "Templates" }} title={<span className="flex items-center gap-3">{t.kind === "fillable" ? <FileSignature className="h-7 w-7 text-maroon" /> : <BookOpen className="h-7 w-7 text-sky-700" />}{t.title}</span>}
+        sub={<span className="flex flex-wrap items-center gap-2">{t.description || TEMPLATE_CATEGORIES[t.category]}{t.visible_to && <span className="inline-flex items-center gap-1 text-maroon"><Lock className="h-3.5 w-3.5" />{visibilityLabel(t.visible_to)} only</span>}</span>}
+        actions={<a href={`/portal/api/templates/${t.id}/file`} className={btn.ghost}><Download className="h-4 w-4" />Download {t.file_name.split(".").pop()?.toUpperCase()}</a>} />
       <Flash msg={sp.msg} />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <div className="space-y-6">
+          <Card title="Preview" pad={false}>
+            <iframe src={`/portal-preview/template/${t.id}`} title={`Preview of ${t.title}`} className="h-[70vh] min-h-[420px] w-full rounded-b-2xl border-0 bg-stone-100" />
+          </Card>
+          {fillable && (
         <Card title="Generate for a matter">
           {!t.active ? <Note tone="warn">This template is switched off.</Note> : !chosen ? (
             <form className="flex flex-wrap items-end gap-2">
@@ -60,11 +71,13 @@ export default async function TemplatePage({ params, searchParams }: { params: P
             </form>
           )}
         </Card>
+          )}
+        </div>
         <div className="space-y-6">
-          <Card title="Fields in this template">
+          {t.kind === "fillable" && <Card title="Fields in this template">
             <div className="flex flex-wrap gap-1.5">{fields.length ? fields.map((f) => <code key={f} className={`rounded px-1.5 py-0.5 text-xs ${KNOWN_FIELDS[f] ? "bg-green/10 text-green" : "bg-gold/20 text-[#7a5a14]"}`}>{f}</code>) : <span className="text-sm text-stone-400">None found.</span>}</div>
             <p className="mt-3 text-xs text-stone-500">Green: filled automatically. Gold: typed in when generating.</p>
-          </Card>
+          </Card>}
           {can(u, "templates.manage") && (
             <Card title="Manage">
               <form action={updateTemplate} className="space-y-3">
@@ -73,12 +86,13 @@ export default async function TemplatePage({ params, searchParams }: { params: P
                 <Select label="Category" name="category" options={TEMPLATE_CATEGORIES} defaultValue={t.category} />
                 <Field label="What it is for" name="description" defaultValue={t.description || ""} />
                 <Select label="Status" name="active" options={[["1", "In use"], ["0", "Switched off"]]} defaultValue={t.active ? "1" : "0"} />
+                <VisibilityField roles={Object.entries(ROLES).filter(([k]) => k !== "admin").map(([k, v]) => [k, v.label])} current={visibleRoles(t.visible_to)} />
                 <button className={btn.small}>Save</button>
               </form>
               <form action="/portal/api/templates" method="post" encType="multipart/form-data" className="mt-4 space-y-2 border-t border-stone-100 pt-4">
                 <input type="hidden" name="id" value={t.id} />
-                <label className="block text-[13px] font-semibold text-stone-700">Replace with an updated .docx</label>
-                <FileField name="file" accept=".docx" required direct={s3Enabled()} className="block w-full text-sm" />
+                <label className="block text-[13px] font-semibold text-stone-700">Replace with an updated file</label>
+                <FileField name="file" required direct={s3Enabled()} className="block w-full text-sm" />
                 <button className={btn.small}><Upload className="h-3.5 w-3.5" />Replace</button>
               </form>
             </Card>

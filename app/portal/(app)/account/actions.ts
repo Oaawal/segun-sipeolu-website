@@ -14,14 +14,14 @@ export async function savePreferences(fd: FormData) {
   const u = await requireUser();
   const phone = str(fd, "phone", 40);
   if (phone && !normalisePhone(phone)) redirect("/portal/account?msg=invalid");
-  await q("UPDATE users SET phone = $2, notify_email = $3, notify_sms = $4 WHERE id = $1", [u.id, phone, fd.get("notify_email") === "1", fd.get("notify_sms") === "1"]);
+  await q("UPDATE users SET phone = $2, notify_email = $3 WHERE id = $1", [u.id, phone, fd.get("notify_email") === "1"]);
   await audit({ userId: u.id, actor: u.email, action: "account.preferences", entityType: "user", entityId: u.id });
   redirect("/portal/account?msg=saved");
 }
 
 export async function sendTestReminder() {
   const u = await requireUser();
-  const p = (await q<{ id: string; email: string; full_name: string; phone: string | null; role: "admin"; notify_email: boolean; notify_sms: boolean }>("SELECT id, email, full_name, phone, role, notify_email, notify_sms FROM users WHERE id = $1", [u.id]))[0];
+  const p = (await q<{ id: string; email: string; full_name: string; phone: string | null; role: "admin"; notify_email: boolean }>("SELECT id, email, full_name, phone, role, notify_email FROM users WHERE id = $1", [u.id]))[0];
   await sendDigest({ ...p }, undefined, { force: true });
   redirect("/portal/account?msg=saved&test=1");
 }

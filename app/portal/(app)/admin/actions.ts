@@ -6,11 +6,11 @@ import { one, q, tx } from "@/lib/portal/db";
 import { audit } from "@/lib/portal/audit";
 import { requirePermission } from "@/lib/portal/auth";
 import { randomToken, sha256 } from "@/lib/portal/crypto";
-import { ROLES } from "@/lib/portal/permissions";
+import { DESIGNATIONS, ROLES, type Designation } from "@/lib/portal/permissions";
 import { isUuid, oneOf, str } from "@/lib/portal/format";
 import { runReminders } from "@/lib/portal/reminders";
 
-async function issueLink(userId: string, purpose: "invite" | "reset", by: string) {
+async function issueLink(userId: string, purpose: "reset", by: string) {
   const token = randomToken(24);
   await q("UPDATE user_tokens SET used_at = now() WHERE user_id = $1 AND used_at IS NULL", [userId]);
   await q("INSERT INTO user_tokens (token_hash, user_id, purpose, expires_at, created_by) VALUES ($1,$2,$3, now() + interval '72 hours', $4)", [sha256(token), userId, purpose, by]);
@@ -18,20 +18,36 @@ async function issueLink(userId: string, purpose: "invite" | "reset", by: string
   (await cookies()).set("ssa_new_link", `${userId}:${token}`, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/portal/admin/people", maxAge: 300 });
 }
 
-export async function inviteUser(fd: FormData) {
+const designationOf = (fd: FormData, role: string) => {
+  const d = String(fd.get("designation") || "");
+  return d in DESIGNATIONS && DESIGNATIONS[d as Designation].forRole === role ? d : null;
+};
+
+/** Approve an account someone created without a code, choosing its role. */
+export async function approveUser(fd: FormData) {
   const u = await requirePermission("users.manage");
-  const email = String(fd.get("email") || "").trim().toLowerCase().slice(0, 254);
-  const name = str(fd, "full_name", 120);
-  if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) redirect("/portal/admin/people?msg=invalid");
-  if (await one("SELECT 1 FROM users WHERE email = $1", [email])) redirect("/portal/admin/people?msg=invalid");
-  const id = crypto.randomUUID();
-  const role = oneOf(fd, "role", ROLES, "lawyer");
+  const id = String(fd.get("id") || "");
+  const p = isUuid(id) ? await one<{ email: string; requested_role: string | null }>("SELECT email, requested_role FROM users WHERE id = $1 AND account_status = 'pending'", [id]) : null;
+  if (!p) redirect("/portal/admin/people");
+  const role = oneOf(fd, "role", ROLES, "front_desk");
   await tx(async (t) => {
-    await t.query("INSERT INTO users (id, email, full_name, role, title, phone, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7)", [id, email, name, role, str(fd, "title", 80), str(fd, "phone", 40), u.id]);
-    await audit({ userId: u.id, actor: u.email, action: "user.invited", entityType: "user", entityId: id, detail: { email, role } }, t);
+    await t.query("UPDATE users SET account_status = 'active', active = TRUE, role = $2, designation = $3, title = COALESCE($4, title), approved_by = $5, approved_at = now() WHERE id = $1",
+      [id, role, designationOf(fd, role), str(fd, "title", 80), u.id]);
+    await audit({ userId: u.id, actor: u.email, action: "user.approved", entityType: "user", entityId: id, detail: { email: p.email, role, requested: p.requested_role } }, t);
   });
-  await issueLink(id, "invite", u.id);
-  redirect("/portal/admin/people?msg=invited&link=1");
+  redirect("/portal/admin/people?msg=user_approved");
+}
+
+export async function rejectUser(fd: FormData) {
+  const u = await requirePermission("users.manage");
+  const id = String(fd.get("id") || "");
+  const p = isUuid(id) ? await one<{ email: string }>("SELECT email FROM users WHERE id = $1 AND account_status = 'pending'", [id]) : null;
+  if (!p) redirect("/portal/admin/people");
+  await tx(async (t) => {
+    await t.query("UPDATE users SET account_status = 'rejected', active = FALSE, password_hash = NULL WHERE id = $1", [id]);
+    await audit({ userId: u.id, actor: u.email, action: "user.rejected", entityType: "user", entityId: id, detail: { email: p.email } }, t);
+  });
+  redirect("/portal/admin/people?msg=user_rejected");
 }
 
 export async function updateUser(fd: FormData) {
@@ -49,7 +65,7 @@ export async function updateUser(fd: FormData) {
     if (!admins?.n) redirect("/portal/admin/people?msg=invalid");
   }
   await tx(async (t) => {
-    await t.query("UPDATE users SET full_name = $2, title = $3, phone = $4, role = $5, active = $6 WHERE id = $1", [id, str(fd, "full_name", 120) || "Unnamed", str(fd, "title", 80), str(fd, "phone", 40), role, active]);
+    await t.query("UPDATE users SET full_name = $2, title = $3, phone = $4, role = $5, active = $6, designation = $7 WHERE id = $1", [id, str(fd, "full_name", 120) || "Unnamed", str(fd, "title", 80), str(fd, "phone", 40), role, active, designationOf(fd, role)]);
     if (!active || role !== before.role) await t.query("DELETE FROM sessions WHERE user_id = $1", [id]);
     if (!active) await t.query("UPDATE api_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL", [id]);
     await audit({ userId: u.id, actor: u.email, action: active ? "user.updated" : "user.deactivated", entityType: "user", entityId: id, detail: { role, from: before.role, active } }, t);
@@ -74,7 +90,7 @@ export async function resetUser(fd: FormData) {
 export async function runRemindersNow() {
   const u = await requirePermission("system.manage");
   const r = await runReminders({ actor: u.email });
-  redirect(`/portal/admin/system?ran=${r.emails}-${r.sms}-${r.failed}`);
+  redirect(`/portal/admin/system?ran=${r.emails}-${r.failed}`);
 }
 
 export async function backupNow() {

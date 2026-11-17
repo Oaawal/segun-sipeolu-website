@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/portal/auth";
 import { one, q } from "@/lib/portal/db";
 import { ROLES } from "@/lib/portal/permissions";
 import { ago, fmtDateTime } from "@/lib/portal/format";
-import { emailEnabled, smsEnabled } from "@/lib/portal/notify";
+import { emailEnabled } from "@/lib/portal/notify";
 import { ActionForm, SubmitButton } from "@/components/portal/ActionForm";
 import { Badge, Card, Check, Field, Flash, Note, PageHeader, Row, btn } from "@/components/portal/ui";
 import { changePasswordAction, signOutOthersAction } from "../../auth-actions";
@@ -17,7 +17,7 @@ export const metadata = { title: "Account" };
 export default async function Account({ searchParams }: { searchParams: Promise<{ msg?: string; token?: string; test?: string; calendar?: string }> }) {
   const u = await requireUser();
   const sp = await searchParams;
-  const me = await one<{ phone: string | null; notify_email: boolean; notify_sms: boolean; last_login_at: string | null; password_changed_at: string | null }>("SELECT phone, notify_email, notify_sms, last_login_at, password_changed_at FROM users WHERE id = $1", [u.id]);
+  const me = await one<{ phone: string | null; notify_email: boolean; last_login_at: string | null; password_changed_at: string | null }>("SELECT phone, notify_email, last_login_at, password_changed_at FROM users WHERE id = $1", [u.id]);
   const sessions = await q<{ token_hash: string; created_at: string; last_seen_at: string; ip: string | null; user_agent: string | null }>("SELECT token_hash, created_at, last_seen_at, ip, user_agent FROM sessions WHERE user_id = $1 AND expires_at > now() ORDER BY last_seen_at DESC", [u.id]);
   const tokens = await q<{ token_hash: string; name: string; created_at: string; expires_at: string; last_used_at: string | null }>("SELECT token_hash, name, created_at, expires_at, last_used_at FROM api_tokens WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now() ORDER BY created_at DESC", [u.id]);
   const jar = await cookies();
@@ -38,16 +38,14 @@ export default async function Account({ searchParams }: { searchParams: Promise<
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card title={<span className="flex items-center gap-2"><MessageSquare className="h-4 w-4" />Reminders</span>}>
           <form action={savePreferences} className="space-y-4">
-            <Field label="Mobile number (for SMS)" name="phone" defaultValue={me?.phone || ""} inputMode="tel" placeholder="0803 000 0000" />
+            <Field label="Mobile number" name="phone" defaultValue={me?.phone || ""} inputMode="tel" placeholder="0803 000 0000" />
             <Check name="notify_email" defaultChecked={me?.notify_email} label="Email me a morning summary: court, tasks and responses due" />
-            <Check name="notify_sms" defaultChecked={me?.notify_sms} label="Text me when I'm in court today or tomorrow, or a deadline is due" />
             <div className="flex flex-wrap gap-2"><button className={btn.primary}>Save</button></div>
           </form>
           <form action={sendTestReminder} className="mt-3"><button className={btn.small}>Send me a test reminder now</button></form>
           <div className="mt-4 space-y-2">
             {!emailEnabled() && <Note tone="warn">Email sending is not set up on the server yet.</Note>}
-            {!smsEnabled() && <Note tone="warn">SMS sending is not set up on the server yet.</Note>}
-            <p className="text-xs text-stone-500">Texts never include client names or case details, only matter numbers, court and time, because SMS is not private.</p>
+            <p className="text-xs text-stone-500">Emails only say that something is waiting in the portal; the details are never in the email.</p>
           </div>
         </Card>
 

@@ -27,7 +27,9 @@ async function build(children: Paragraph[]) {
   return new Uint8Array(await Packer.toBuffer(doc));
 }
 
-export async function starterTemplates() {
+export interface Starter { title: string; category: string; description: string; file_name: string; bytes: Uint8Array; visible_to?: string[] }
+
+export async function starterTemplates(): Promise<Starter[]> {
   return [
     {
       title: "Letter of engagement", category: "engagement", description: "Confirms instructions, scope, fees and responsibilities at the start of a matter.",
@@ -88,6 +90,38 @@ export async function starterTemplates() {
         p("______________________", { align: "right", after: 40 }), p("DEPONENT", { bold: true, align: "right", after: 360 }),
         p("SWORN TO at the {{matter.court}} Registry this ____ day of ______________ 20___", { after: 480 }),
         p("BEFORE ME", { bold: true, after: 480 }), p("COMMISSIONER FOR OATHS", { bold: true }),
+      ]),
+    },
+    {
+      title: "Invoice", category: "billing", description: "Blank invoice for partners to complete and give to the client. Fill in the amounts; VAT is 7.5% on fees.",
+      file_name: "Invoice.docx", visible_to: ["partner"],
+      bytes: await build([
+        ...letterhead(),
+        p("INVOICE", { bold: true, size: 32, align: "center", after: 240 }),
+        p("Invoice no: {{invoice.number}}          Date: {{today}}", { after: 60 }),
+        p("Our ref: {{matter.number}}", { after: 240 }),
+        p("To: {{client.name}}", { bold: true, after: 40 }), p("{{client.address}}", { after: 240 }),
+        p("RE: {{matter.title}}", { bold: true, after: 240 }),
+        p("Professional fees: {{fees.description}}", { after: 60 }),
+        p("Fees: ₦{{fees.amount}}", { align: "right", after: 60 }),
+        p("VAT at 7.5% on fees: ₦{{vat.amount}}", { align: "right", after: 60 }),
+        p("Disbursements (at cost): ₦{{disbursements.amount}}", { align: "right", after: 60 }),
+        p("TOTAL DUE: ₦{{total.amount}}", { bold: true, align: "right", after: 360 }),
+        p("Payment by bank transfer to: {{bank.details}}. Please quote the invoice number as the reference. Payable within {{days}} days.", { align: "justify", after: 360 }),
+        p("{{user.name}}", { bold: true, after: 40 }), p("For: {{firm.name}}"),
+      ]),
+    },
+    {
+      title: "Official receipt", category: "billing", description: "Receipt for money received from a client, for partners to complete and sign.",
+      file_name: "Official receipt.docx", visible_to: ["partner"],
+      bytes: await build([
+        ...letterhead(),
+        p("OFFICIAL RECEIPT", { bold: true, size: 32, align: "center", after: 240 }),
+        p("Receipt no: {{receipt.number}}          Date: {{today}}", { after: 240 }),
+        p("Received from {{client.name}} the sum of ₦{{amount}} ({{amount.in_words}}), being payment for {{payment.for}} in respect of {{matter.title}} (our ref: {{matter.number}}).", { align: "justify", after: 240 }),
+        p("Paid by: {{payment.method}}          Reference: {{payment.reference}}", { after: 480 }),
+        p("______________________", { after: 40 }),
+        p("{{user.name}}", { bold: true, after: 40 }), p("For: {{firm.name}}"),
       ]),
     },
   ];

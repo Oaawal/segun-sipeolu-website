@@ -2,13 +2,12 @@ import { CheckCircle2, Database, Download, XCircle } from "lucide-react";
 import { requirePermission } from "@/lib/portal/auth";
 import { dbEngineName, one, q } from "@/lib/portal/db";
 import { s3Enabled } from "@/lib/portal/storage";
-import { emailEnabled, smsEnabled } from "@/lib/portal/notify";
+import { emailEnabled } from "@/lib/portal/notify";
 import { transcriptionEnabled } from "@/lib/portal/transcribe";
 import { minutesEnabled } from "@/lib/portal/minutes";
 import { intakeAddress, intakeEnabled } from "@/lib/portal/mail-intake";
 import { fmtDateTime } from "@/lib/portal/format";
 import { Badge, Card, Flash, Note, PageHeader, Row, btn } from "@/components/portal/ui";
-import { paystackEnabled } from "@/lib/portal/paystack";
 import { indexStats } from "@/lib/portal/fulltext";
 import { backupNow, readDocumentsNow, runRemindersNow } from "../actions";
 
@@ -22,11 +21,9 @@ export default async function System({ searchParams }: { searchParams: Promise<{
     ["Database", true, dbEngineName()],
     ["File storage", s3Enabled() || !process.env.VERCEL, s3Enabled() ? `S3-compatible bucket "${process.env.STORAGE_S3_BUCKET}" (files encrypted before upload; large uploads go straight to the bucket)` : "This server's disk (PORTAL_DATA_DIR). Back it up nightly."],
     ["Email reminders (Brevo)", emailEnabled(), "BREVO_API_KEY and NOTIFY_FROM_EMAIL"],
-    ["SMS reminders (Termii)", smsEnabled(), "TERMII_API_KEY and an approved TERMII_SENDER_ID"],
     ["Daily reminders schedule (CRON_SECRET)", !!process.env.CRON_SECRET, "Call /portal/api/cron/reminders every morning"],
     ["Meeting transcription (Deepgram)", transcriptionEnabled(), "DEEPGRAM_API_KEY"],
     ["AI minutes, assistant and text recognition (Claude)", minutesEnabled(), "ANTHROPIC_API_KEY. Also reads scanned PDFs and photos for search (turn that off with PORTAL_OCR=off)"],
-    ["Online payments (Paystack)", paystackEnabled(), "PAYSTACK_SECRET_KEY, and the webhook set in the Paystack dashboard"],
     ["Portal address (PORTAL_URL)", !!process.env.PORTAL_URL, "Used for links in reminders, calendars and the Word and Windows helpers"],
     ["Mail server defaults (MAIL_IMAP_HOST, MAIL_SMTP_HOST)", !!process.env.MAIL_IMAP_HOST && !!process.env.MAIL_SMTP_HOST, "So staff only type their address and password to connect their mailbox"],
     ["Email to the portal (PORTAL_INTAKE_*)", intakeEnabled(), intakeEnabled() ? `Send or forward to ${intakeAddress()}; check it every 5-15 minutes at /portal/api/cron/mail-intake` : "A mailbox such as portal@segunsipeolu.com that the portal empties into staff inboxes"],
@@ -50,7 +47,7 @@ export default async function System({ searchParams }: { searchParams: Promise<{
     <>
       <PageHeader title="System & backups" sub="Health, reminders and backups" actions={<a href="/portal/api/backup" className={btn.primary}><Download className="h-4 w-4" />Download a backup now</a>} />
       <Flash msg={sp.msg} />
-      {ran && <div className="mb-5"><Note tone="ok">Reminders run: {ran[0]} emails and {ran[1]} texts sent{ran[2] ? `, ${ran[2]} failed (see the log below)` : ""}.</Note></div>}
+      {ran && <div className="mb-5"><Note tone="ok">Reminders run: {ran[0]} emails sent{ran[1] ? `, ${ran[1]} failed (see the log below)` : ""}.</Note></div>}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card title="Health" pad={false}>
           {checks.map(([k, ok, note]) => (
@@ -93,7 +90,7 @@ export default async function System({ searchParams }: { searchParams: Promise<{
       </Card>
       <Card title="Recent messages sent" className="mt-6" pad={false}>
         {notes.length === 0 ? <p className="p-5 text-sm text-stone-400">No reminders sent yet.</p> : notes.map((n) => (
-          <Row key={n.id}><Badge tone={n.channel === "sms" ? "gold" : "blue"}>{n.channel.toUpperCase()}</Badge><div className="min-w-0 flex-1"><div className="truncate text-sm">{n.full_name} · {n.kind} · {n.recipient}</div><div className="truncate text-xs text-stone-500">{fmtDateTime(n.created_at)}{n.error ? ` · ${n.error}` : ""}</div></div><Badge tone={n.status === "sent" ? "green" : "red"}>{n.status}</Badge></Row>
+          <Row key={n.id}><Badge tone="blue">EMAIL</Badge><div className="min-w-0 flex-1"><div className="truncate text-sm">{n.full_name} · {n.kind} · {n.recipient}</div><div className="truncate text-xs text-stone-500">{fmtDateTime(n.created_at)}{n.error ? ` · ${n.error}` : ""}</div></div><Badge tone={n.status === "sent" ? "green" : "red"}>{n.status}</Badge></Row>
         ))}
       </Card>
     </>

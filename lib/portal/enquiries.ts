@@ -11,8 +11,8 @@ export const ENQUIRY_SOURCES = { website: "Website", walk_in: "Walk-in", phone: 
 
 /** Tell partners and front desk (and whoever it is assigned to) that an enquiry came in. */
 export async function announceEnquiry(e: { id: string; number: string; name: string; practice_area: string | null; source: string }, assignedTo?: string | null) {
-  const people = await q<{ id: string; email: string; full_name: string; phone: string | null; notify_email: boolean; notify_sms: boolean }>(
-    "SELECT id, email, full_name, phone, notify_email, FALSE AS notify_sms FROM users WHERE active AND (role IN ('admin','partner','front_desk') OR id = $1)", [assignedTo ?? null]);
+  const people = await q<{ id: string; email: string; full_name: string; phone: string | null; notify_email: boolean }>(
+    "SELECT id, email, full_name, phone, notify_email FROM users WHERE active AND (role IN ('admin','partner','front_desk') OR id = $1)", [assignedTo ?? null]);
   const href = `${portalUrl()}/enquiries/${e.id}`;
   for (const p of people) {
     await notify(p, {

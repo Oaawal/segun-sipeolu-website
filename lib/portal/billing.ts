@@ -1,15 +1,15 @@
 import "server-only";
 import { one, q, nextNumber, type Queryable } from "./db";
 import { can, canSeeMatter, matterAccessSql, type Actor } from "./permissions";
-import { randomToken } from "./crypto";
 import { addDays, today } from "./format";
 import { feeFor, vatOn, VAT_BP } from "./money";
 
 /**
- * Billing: time and disbursements recorded against matters become lines on a
- * draft invoice; a partner issues it (it gets its number then), records
- * payments against it (or the client pays online with Paystack), and the
- * reports show work in progress, what is owed and for how long.
+ * Billing (partners only): time and disbursements recorded against matters
+ * become lines on a draft invoice; a partner issues it (it gets its number
+ * then) and gives it to the client themselves, printed or as a Word file.
+ * Payments received are recorded by hand, each with a numbered receipt to
+ * print or download. Nothing is sent to clients and there is no online payment.
  */
 
 // ── Firm billing settings (admin) ────────────────────────────────
@@ -44,7 +44,7 @@ export async function billingMatter(u: Actor, matterId: string) {
 
 export interface InvoiceRow {
   id: string; number: string | null; matter_id: string; client_id: string; status: string; issued_on: string | null; due_on: string | null;
-  vat_rate_bp: number; subtotal_kobo: number; vat_kobo: number; total_kobo: number; paid_kobo: number; notes: string | null; pay_token: string | null;
+  vat_rate_bp: number; subtotal_kobo: number; vat_kobo: number; total_kobo: number; paid_kobo: number; notes: string | null;
   created_at: string; matter_number: string; matter_title: string; client_name: string; client_email: string | null; client_address: string | null;
   billing_email: string | null; confidential: boolean; is_member: boolean; created_by_name: string | null; void_reason: string | null;
 }
@@ -68,8 +68,8 @@ export async function invoiceLines(invoiceId: string) {
 }
 
 export async function invoicePayments(invoiceId: string) {
-  return q<{ id: string; received_on: string; amount_kobo: number; method: string; reference: string | null; reversed_at: string | null; created_by_name: string | null }>(
-    "SELECT p.id, p.received_on, p.amount_kobo, p.method, p.reference, p.reversed_at, u.full_name AS created_by_name FROM payments p LEFT JOIN users u ON u.id = p.created_by WHERE p.invoice_id = $1 ORDER BY p.received_on, p.created_at", [invoiceId]);
+  return q<{ id: string; received_on: string; amount_kobo: number; method: string; reference: string | null; receipt_number: string | null; reversed_at: string | null; created_by_name: string | null }>(
+    "SELECT p.id, p.received_on, p.amount_kobo, p.method, p.reference, p.receipt_number, p.reversed_at, u.full_name AS created_by_name FROM payments p LEFT JOIN users u ON u.id = p.created_by WHERE p.invoice_id = $1 ORDER BY p.received_on, p.created_at", [invoiceId]);
 }
 
 export async function listInvoices(u: Actor, opts: { status?: string; matterId?: string; clientId?: string } = {}) {
@@ -186,16 +186,17 @@ export async function issueInvoice(t: Queryable, invoiceId: string, userId: stri
   const days = dueDays ?? (Number(settings["billing.terms_days"]) || 14);
   const number = await nextNumber(t, "SSA/INV");
   const issued = today();
-  await t.query("UPDATE invoices SET status = 'issued', number = $2, issued_on = $3, due_on = $4, pay_token = $5, issued_by = $6 WHERE id = $1 AND status = 'draft'",
-    [invoiceId, number, issued, addDays(issued, days), randomToken(24), userId]);
+  await t.query("UPDATE invoices SET status = 'issued', number = $2, issued_on = $3, due_on = $4, issued_by = $5 WHERE id = $1 AND status = 'draft'",
+    [invoiceId, number, issued, addDays(issued, days), userId]);
   return number;
 }
 
 /** Record money received and move the invoice to part paid / paid. */
-export async function applyPayment(t: Queryable, invoiceId: string, p: { amountKobo: number; receivedOn: string; method: string; reference?: string | null; providerRef?: string | null; userId?: string | null }) {
+export async function applyPayment(t: Queryable, invoiceId: string, p: { amountKobo: number; receivedOn: string; method: string; reference?: string | null; userId?: string | null }) {
   const id = crypto.randomUUID();
-  await t.query("INSERT INTO payments (id, invoice_id, received_on, amount_kobo, method, reference, provider_ref, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
-    [id, invoiceId, p.receivedOn, p.amountKobo, p.method, p.reference ?? null, p.providerRef ?? null, p.userId ?? null]);
+  const receipt = await nextNumber(t, "SSA/RCP");
+  await t.query("INSERT INTO payments (id, invoice_id, received_on, amount_kobo, method, reference, receipt_number, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+    [id, invoiceId, p.receivedOn, p.amountKobo, p.method, p.reference ?? null, receipt, p.userId ?? null]);
   await refreshPaid(t, invoiceId);
   return id;
 }
@@ -262,29 +263,4 @@ export async function timeByPerson(from: string, to: string) {
      FROM users u LEFT JOIN time_entries t ON t.user_id = u.id AND t.deleted_at IS NULL AND t.worked_on BETWEEN $1 AND $2
      WHERE u.active AND u.role <> 'front_desk' GROUP BY u.id, u.full_name ORDER BY minutes DESC`,
     [from, to]);
-}
-
-// ── Online payments ──────────────────────────────────────────────
-/**
- * Record a Paystack payment once it is verified with Paystack. Safe to call
- * twice for the same reference (callback and webhook both arrive): the
- * unique provider_ref means the second call records nothing.
- */
-export async function settlePaystack(reference: string): Promise<{ ok: boolean; invoiceId?: string; already?: boolean; message?: string }> {
-  const { verifyPayment, invoiceIdFromReference } = await import("./paystack");
-  const { tx } = await import("./db");
-  const { audit } = await import("./audit");
-  const invoiceId = invoiceIdFromReference(reference);
-  if (!invoiceId) return { ok: false, message: "Unknown reference" };
-  const v = await verifyPayment(reference);
-  if (v.status !== "success" || v.currency !== "NGN" || !(v.amount > 0)) return { ok: false, invoiceId, message: `Payment ${v.status}` };
-  return tx(async (t) => {
-    const seen = (await t.query("SELECT 1 FROM payments WHERE provider_ref = $1", [reference])).rows.length;
-    if (seen) return { ok: true, invoiceId, already: true };
-    const inv = (await t.query<{ id: string; status: string; number: string; matter_id: string }>("SELECT id, status, number, matter_id FROM invoices WHERE id = $1 FOR UPDATE", [invoiceId])).rows[0];
-    if (!inv || inv.status === "draft") return { ok: false, invoiceId, message: "Invoice not found" };
-    await applyPayment(t, inv.id, { amountKobo: v.amount, receivedOn: (v.paid_at || new Date().toISOString()).slice(0, 10), method: "paystack", reference: v.channel ? `Paystack (${v.channel})` : "Paystack", providerRef: reference });
-    await audit({ actor: "system:paystack", action: "invoice.paid_online", entityType: "invoice", entityId: inv.id, matterId: inv.matter_id, detail: { number: inv.number, amount_kobo: v.amount, reference } }, t);
-    return { ok: true, invoiceId };
-  });
 }

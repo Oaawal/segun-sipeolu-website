@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { one, q } from "./db";
 import { randomToken, sha256 } from "./crypto";
-import { can, type Actor, type Permission, type Role } from "./permissions";
+import { can, type Actor, type Designation, type Permission, type Role } from "./permissions";
 
 /**
  * Sessions for the staff portal.
@@ -21,6 +21,7 @@ const MAX_HOURS = 12;
 
 export interface SessionUser extends Actor {
   title: string | null;
+  designation: Designation | null;
   totp_enabled: boolean;
   mfa_passed: boolean;
   token_hash: string;
@@ -70,7 +71,7 @@ export const currentUser = cache(async (): Promise<SessionUser | null> => {
   if (!token) return null;
   const hash = sha256(token);
   const row = await one<SessionUser & { last_seen_at: Date }>(
-    `SELECT u.id, u.email, u.full_name, u.role, u.title, u.totp_enabled, s.mfa_passed, s.token_hash, s.last_seen_at
+    `SELECT u.id, u.email, u.full_name, u.role, u.title, u.designation, u.totp_enabled, s.mfa_passed, s.token_hash, s.last_seen_at
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = $1 AND s.expires_at > now() AND u.active
        AND s.last_seen_at > now() - ($2::int * interval '1 minute')`,

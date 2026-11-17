@@ -11,9 +11,6 @@ import {
   applyPayment, billingMatter, BILLING_SETTINGS, createDraftInvoice, issueInvoice, loadInvoice, recalcInvoice, refreshPaid, releaseInvoiceEntries,
   clientAccountBalance, type BillingSettingKey,
 } from "@/lib/portal/billing";
-import { emailEnabled } from "@/lib/portal/notify";
-import { sendClientEmail } from "@/lib/portal/client-mail";
-import { portalUrl } from "@/lib/portal/reminders";
 
 const back = (fd: FormData, fallback: string) => {
   const b = String(fd.get("back") || "");
@@ -273,34 +270,6 @@ export async function voidInvoice(fd: FormData) {
     await audit({ userId: u.id, actor: u.email, action: "invoice.voided", entityType: "invoice", entityId: inv.id, matterId: inv.matter_id, detail: { number: inv.number, reason } }, t);
   });
   redirect(withMsg(url, "saved"));
-}
-
-/** Email the invoice (with its payment link) to the client's billing address. */
-export async function sendInvoice(fd: FormData) {
-  const { inv, url } = await invoiceFor(fd);
-  const u = await requirePermission("billing.manage");
-  const to = (str(fd, "to", 254) || inv.billing_email || inv.client_email || "").toLowerCase();
-  if (!["issued", "part_paid"].includes(inv.status) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) redirect(withMsg(url, "invalid"));
-  if (!emailEnabled()) redirect(withMsg(url, "email_off"));
-  const reminder = fd.get("reminder") === "1";
-  const payUrl = `${portalUrl().replace(/\/portal$/, "")}/pay/${inv.pay_token}`;
-  // No amounts, numbers or matter names in the email: they are on the page behind the link
-  await sendClientEmail({
-    to, name: inv.client_name,
-    subject: reminder ? "A reminder from Segun Sipeolu & Associates" : "An invoice from Segun Sipeolu & Associates",
-    heading: reminder ? "An invoice is awaiting payment" : "An invoice is ready for you",
-    paragraphs: [
-      "Dear Sir/Madam,",
-      reminder ? "This is a gentle reminder that an invoice from us is awaiting payment." : "An invoice from us is ready for you to view.",
-      "Use the button below to see it and pay securely by card or bank transfer. If you have already paid, thank you, and please ignore this message.",
-    ],
-    button: { label: "View the invoice", href: payUrl },
-  });
-  await tx(async (t) => {
-    await t.query("UPDATE invoices SET last_reminded_at = now() WHERE id = $1", [inv.id]);
-    await audit({ userId: u.id, actor: u.email, action: reminder ? "invoice.reminder_sent" : "invoice.sent", entityType: "invoice", entityId: inv.id, matterId: inv.matter_id, detail: { to } }, t);
-  });
-  redirect(withMsg(url, "invoice_sent"));
 }
 
 // ── Client account ───────────────────────────────────────────────

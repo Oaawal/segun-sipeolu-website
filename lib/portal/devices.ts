@@ -33,7 +33,7 @@ export async function checkNewDevice(u: { id: string; email: string; full_name: 
     const href = `${portalUrl()}/account`;
     const r = await one<{ phone: string | null; notify_email: boolean }>("SELECT phone, notify_email FROM users WHERE id = $1", [u.id]);
     // Always by email, even if reminders are switched off: this is a security notice
-    await notify({ id: u.id, email: u.email, full_name: u.full_name, phone: r?.phone ?? null, notify_email: true, notify_sms: false }, {
+    await notify({ id: u.id, email: u.email, full_name: u.full_name, phone: r?.phone ?? null, notify_email: true }, {
       kind: "new_device", key: `device:${hash}`, subject: "New sign-in to your portal account",
       html: emailLayout("New sign-in to your account", [{ heading: "Sign-in", items: [{ title: label, detail: `${when} (Lagos time)${ip ? ` · network address ${ip}` : ""}` }] }], "If this was you, there is nothing to do. If not, change your password now and tell the Managing Partner: they can sign you out everywhere.", href),
       text: `New sign-in to your portal account: ${label}, ${when}${ip ? `, ${ip}` : ""}. If this was not you, change your password and tell the Managing Partner.`,

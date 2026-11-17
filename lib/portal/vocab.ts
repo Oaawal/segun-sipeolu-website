@@ -122,4 +122,4 @@ export const ASSET_KINDS = {
   storage: "Storage / backup drive", software: "Software licence", subscription: "Subscription / service", domain: "Domain / website", furniture: "Furniture / equipment", other: "Other",
 } as const;
 
-export const TEMPLATE_CATEGORIES = { engagement: "Engagement and client care", letter: "Letters", court: "Court processes", corporate: "Corporate / secretarial", property: "Property", other: "Other" } as const;
+export const TEMPLATE_CATEGORIES = { engagement: "Engagement and client care", letter: "Letters", court: "Court processes", corporate: "Corporate / secretarial", property: "Property", billing: "Invoices and receipts", forms: "Forms and checklists", reference: "Reference and guidance", other: "Other" } as const;

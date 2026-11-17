@@ -25,8 +25,11 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
     ...(canManage ? [{ key: "firm", label: "Firm figures", href: "/portal/billing?tab=firm" }] : []),
   ];
   const header = (
-    <PageHeader title="Time & billing" sub="Record time as you work. Bills are drafted from it, issued by a partner and paid by bank transfer or online."
-      actions={can(u, "billing.settings") ? <Link href="/portal/billing/settings" className={btn.ghost}><Settings className="h-4 w-4" />Rates & invoice settings</Link> : undefined} />
+    <PageHeader title="Time & billing" sub="For the partners: record time, draft and issue invoices, record payments with numbered receipts. Invoices and receipts are printed or downloaded in Word and given to clients by hand or by your own email."
+      actions={<>
+        <Link href="/portal/templates?cat=billing" className={btn.ghost}>Invoice & receipt templates</Link>
+        {can(u, "billing.settings") && <Link href="/portal/billing/settings" className={btn.ghost}><Settings className="h-4 w-4" />Rates & invoice settings</Link>}
+      </>} />
   );
 
   if (tab === "time") {

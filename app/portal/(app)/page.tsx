@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Briefcase, CalendarDays, Gavel, Inbox, ListChecks, MessageSquare, Mic, Plus, Sparkles, Timer, UserPlus } from "lucide-react";
+import { Briefcase, CalendarDays, Gavel, Inbox, ListChecks, Mic, Plus, Sparkles, Timer, UserPlus } from "lucide-react";
 import { one } from "@/lib/portal/db";
 import { assistantEnabled } from "@/lib/portal/assistant";
 import { requireUser } from "@/lib/portal/auth";
@@ -14,10 +14,8 @@ export default async function Today({ searchParams }: { searchParams: Promise<{ 
   const u = await requireUser();
   const sp = await searchParams;
   const d = await dashboard(u);
-  const nudge = (await one<{ timer: string | null; client_msgs: number; client_msg_matter: string | null; enquiries: number }>(
+  const nudge = (await one<{ timer: string | null; enquiries: number }>(
     `SELECT (SELECT m.number FROM timers t JOIN matters m ON m.id = t.matter_id WHERE t.user_id = $1) AS timer,
-            (SELECT COUNT(*)::int FROM client_messages x JOIN matter_members mm ON mm.matter_id = x.matter_id AND mm.user_id = $1 WHERE x.from_client AND x.read_at IS NULL) AS client_msgs,
-            (SELECT x.matter_id FROM client_messages x JOIN matter_members mm ON mm.matter_id = x.matter_id AND mm.user_id = $1 WHERE x.from_client AND x.read_at IS NULL ORDER BY x.created_at DESC LIMIT 1) AS client_msg_matter,
             (SELECT COUNT(*)::int FROM enquiries WHERE status = 'new') AS enquiries`, [u.id]))!;
   const hour = Number(new Date().toLocaleString("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", hour12: false }));
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -42,10 +40,9 @@ export default async function Today({ searchParams }: { searchParams: Promise<{ 
       />
       <Flash msg={sp.msg} />
       {sp.denied && <div className="mb-5"><Note tone="danger">Your role does not allow that page. If you need access, ask the Managing Partner.</Note></div>}
-      {(nudge.timer || Number(nudge.client_msgs) > 0 || (can(u, "intake.view") && Number(nudge.enquiries) > 0)) && (
+      {(nudge.timer || (can(u, "intake.view") && Number(nudge.enquiries) > 0)) && (
         <div className="mb-6 flex flex-wrap gap-2">
           {nudge.timer && <Link href="/portal/billing" className="inline-flex items-center gap-2 rounded-full bg-maroon px-3.5 py-1.5 text-sm font-semibold text-white"><Timer className="h-4 w-4 text-gold" />Timer running on {nudge.timer}</Link>}
-          {Number(nudge.client_msgs) > 0 && <Link href={nudge.client_msg_matter ? `/portal/matters/${nudge.client_msg_matter}?tab=client` : "/portal/matters"} className="inline-flex items-center gap-2 rounded-full border border-gold bg-gold/15 px-3.5 py-1.5 text-sm font-semibold text-maroon-dark"><MessageSquare className="h-4 w-4" />{nudge.client_msgs} new client message{Number(nudge.client_msgs) === 1 ? "" : "s"}</Link>}
           {can(u, "intake.view") && Number(nudge.enquiries) > 0 && <Link href="/portal/enquiries" className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-3.5 py-1.5 text-sm font-semibold text-stone-800"><UserPlus className="h-4 w-4 text-maroon" />{nudge.enquiries} new enquir{Number(nudge.enquiries) === 1 ? "y" : "ies"}</Link>}
         </div>
       )}

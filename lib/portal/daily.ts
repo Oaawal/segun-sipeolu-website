@@ -18,7 +18,7 @@ import { today } from "./format";
 export async function runDaily() {
   const day = today();
   const out: Record<string, unknown> = {};
-  // Reminder counts stay at the top level (people, emails, sms, failed), as before
+  // Reminder counts stay at the top level (people, emails, failed), as before
   try { Object.assign(out, await runReminders({ day })); } catch (e) { out.reminders = `failed: ${(e as Error).message}`; }
 
   try {
@@ -46,7 +46,7 @@ export async function runDaily() {
         const p = list[0];
         const total = list.reduce((s, r) => s + Number(r.due), 0);
         const href = `${portalUrl()}/billing?tab=invoices&status=overdue`;
-        await notify({ id: p.partner, email: p.email, full_name: p.full_name, phone: p.phone, notify_email: p.notify_email, notify_sms: false }, {
+        await notify({ id: p.partner, email: p.email, full_name: p.full_name, phone: p.phone, notify_email: p.notify_email }, {
           kind: "overdue_invoices", key: `overdue_invoices:${day}`, subject: `${list.length} overdue invoice${list.length === 1 ? "" : "s"}: ${naira(total)}`,
           html: emailLayout("Overdue invoices on your matters", [{ heading: "Overdue", items: list.slice(0, 30).map((r) => ({ title: `${r.number} · ${r.client}`, detail: `${naira(r.due)} due since ${r.due_on}`, href: `${portalUrl()}/billing/invoices/${r.id}` })) }], "A short reminder to the client, or a call, usually does it. You can email a reminder from each invoice.", href),
           text: `${list.length} overdue invoices on your matters, ${naira(total)} in all. ${href}`,

@@ -65,7 +65,7 @@ export const EXPENSE_KINDS = {
   transport: "Transport", courier: "Courier", printing: "Printing / copies", registration: "Registration / perfection", other: "Other",
 } as const;
 
-export const PAYMENT_METHODS = { transfer: "Bank transfer", paystack: "Card / Paystack", cheque: "Cheque", cash: "Cash", pos: "POS", other: "Other" } as const;
+export const PAYMENT_METHODS = { transfer: "Bank transfer", cheque: "Cheque", cash: "Cash", pos: "POS / card", other: "Other" } as const;
 
 export const INVOICE_STATUS: Record<string, [string, "grey" | "amber" | "blue" | "green" | "red"]> = {
   draft: ["Draft", "grey"], issued: ["Issued", "blue"], part_paid: ["Part paid", "amber"], paid: ["Paid", "green"], void: ["Void", "red"],

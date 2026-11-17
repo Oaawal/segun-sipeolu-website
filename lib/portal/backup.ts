@@ -14,11 +14,11 @@ export const BACKUP_TABLES = [
   "users", "clients", "matters", "matter_members", "parties", "matter_notes", "hearings", "service_register", "tasks", "documents", "meetings",
   "notifications", "audit_log", "templates", "contacts", "contact_matters", "entities", "entity_officers", "entity_shareholdings", "entity_filings",
   "assets", "systems", "system_access", "mail_accounts", "calendar_feeds", "api_tokens", "counters", "settings", "schema_migrations",
-  "time_entries", "expenses", "invoices", "invoice_lines", "payments", "client_ledger", "client_users", "client_messages", "signature_requests",
+  "time_entries", "expenses", "invoices", "invoice_lines", "payments", "client_ledger", "document_duplicates", "invite_codes",
   "enquiries", "workflows", "deadline_rules", "holidays", "assistant_log", "backups",
 ];
 // Secrets never leave the server, even in a backup
-const STRIP: Record<string, string[]> = { users: ["password_hash", "totp_secret"], mail_accounts: ["password_enc"], calendar_feeds: ["token_hash"], api_tokens: ["token_hash"], client_users: ["password_hash"], signature_requests: ["token_hash"], invoices: ["pay_token"] };
+const STRIP: Record<string, string[]> = { users: ["password_hash", "totp_secret"], mail_accounts: ["password_enc"], calendar_feeds: ["token_hash"], api_tokens: ["token_hash"], invite_codes: ["code_hash"] };
 const KEEP = 30;
 
 export async function buildBackup(by: string) {

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LogOut, Menu, Search, UserCog } from "lucide-react";
 import { requireUser } from "@/lib/portal/auth";
-import { can, ROLES } from "@/lib/portal/permissions";
+import { can, invitableRoles, ROLES } from "@/lib/portal/permissions";
 import { one } from "@/lib/portal/db";
 import { matterAccessSql } from "@/lib/portal/permissions";
 import { Nav, type NavGroup } from "@/components/portal/Nav";
@@ -14,11 +14,11 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const u = await requireUser();
-  const counts = await one<{ tasks: number; due: number; inbox: number; enquiries: number; client_msgs: number; timer: boolean; dups: number }>(
+  const counts = await one<{ tasks: number; due: number; inbox: number; enquiries: number; timer: boolean; dups: number; pending: number }>(
     `SELECT (SELECT COUNT(*) FROM tasks t WHERE t.status = 'open' AND t.assigned_to = $1 AND t.due_on <= CURRENT_DATE) AS tasks,
             (SELECT COUNT(*) FROM enquiries WHERE status = 'new') AS enquiries,
-            (SELECT COUNT(*) FROM client_messages x JOIN matter_members mm ON mm.matter_id = x.matter_id AND mm.user_id = $1 WHERE x.from_client AND x.read_at IS NULL) AS client_msgs,
             EXISTS (SELECT 1 FROM timers WHERE user_id = $1) AS timer,
+            ${can(u, "users.manage") ? "(SELECT COUNT(*) FROM users WHERE account_status = 'pending')" : "0"} AS pending,
             ${can(u, "documents.review_duplicates") ? `(SELECT COUNT(*) FROM document_duplicates x JOIN documents d ON d.id = x.document_id WHERE x.status = 'open' AND d.deleted_at IS NULL AND ${reviewableSql()})` : "0"} AS dups,
             (SELECT COUNT(*) FROM documents d WHERE d.owner_type = 'inbox' AND d.owner_id = $1 AND d.deleted_at IS NULL) AS inbox,
             (SELECT COUNT(*) FROM service_register s LEFT JOIN matters m ON m.id = s.matter_id
@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { key: "inbox", label: "Inbox", href: "/portal/inbox", badge: counts?.inbox || 0 },
         ...(can(u, "mail.use") ? [{ key: "mail", label: "Mailbox", href: "/portal/mail" }] : []),
         ...(can(u, "assistant.use") ? [{ key: "ask", label: "Ask", href: "/portal/ask" }] : []),
-        ...(u.role !== "front_desk" ? [{ key: "matters", label: "Matters", href: "/portal/matters", badge: counts?.client_msgs || 0 }] : []),
+        ...(u.role !== "front_desk" ? [{ key: "matters", label: "Matters", href: "/portal/matters" }] : []),
         { key: "diary", label: "Court diary", href: "/portal/diary" },
         { key: "register", label: "Service register", href: "/portal/register", badge: counts?.due || 0 },
         { key: "tasks", label: "Tasks", href: "/portal/tasks", badge: counts?.tasks || 0 },
@@ -61,12 +61,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ...(can(u, "reports.view") ? [{ key: "reports", label: "Reports", href: "/portal/reports" }] : []),
         ...(can(u, "office.manage") ? [{ key: "office", label: "Office & IT", href: "/portal/office" }] : []),
         { key: "connect", label: "Save from anywhere", href: "/portal/connect" },
+        ...(invitableRoles(u).length ? [{ key: "invitations", label: "Invitation codes", href: "/portal/invitations" }] : []),
         ...(can(u, "documents.review_duplicates") ? [{ key: "duplicates", label: "Duplicates", href: "/portal/duplicates", badge: counts?.dups || 0 }] : []),
       ],
     },
     ...(can(u, "users.manage")
       ? [{ name: "Administration", items: [
-          { key: "people", label: "People & access", href: "/portal/admin/people" },
+          { key: "people", label: "People & access", href: "/portal/admin/people", badge: counts?.pending || 0 },
           { key: "audit", label: "Audit trail", href: "/portal/admin/audit" },
           { key: "system", label: "System & backups", href: "/portal/admin/system" },
         ] }]

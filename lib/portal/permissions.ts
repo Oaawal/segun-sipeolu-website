@@ -42,23 +42,20 @@ export const PERMISSIONS = {
   "meetings.use": ["admin", "partner", "lawyer", "litigation"],
   "contacts.view": ["admin", "partner", "lawyer", "litigation", "front_desk"],
   "contacts.edit": ["admin", "partner", "lawyer", "litigation", "front_desk"],
+  // Everyone can browse and preview the templates and reference documents they are allowed to see
+  "templates.view": ["admin", "partner", "lawyer", "litigation", "front_desk"],
   "templates.use": ["admin", "partner", "lawyer", "litigation"],
-  "templates.manage": ["admin", "partner", "lawyer"],
+  "templates.manage": ["admin", "partner", "lawyer", "litigation"],
   "cosec.view": ["admin", "partner", "lawyer"],
   "cosec.edit": ["admin", "partner", "lawyer"],
   "reports.view": ["admin", "partner"],
   "office.manage": ["admin"],
   "mail.use": ["admin", "partner", "lawyer", "litigation", "front_desk"],
-  // Billing: everyone who does fee-earning work records time on matters they can open;
-  // lawyers draft bills for their matters; only partners issue, take payments and run the client account.
-  "billing.record_time": ["admin", "partner", "lawyer", "litigation"],
-  "billing.draft": ["admin", "partner", "lawyer"],
+  // Billing is for the partners alone (the Managing Partner included): time, invoices, receipts, client account
+  "billing.record_time": ["admin", "partner"],
+  "billing.draft": ["admin", "partner"],
   "billing.manage": ["admin", "partner"],
   "billing.settings": ["admin"],
-  // Client portal: partners give clients access; matter teams talk to clients and share files
-  "clientportal.invite": ["admin", "partner"],
-  "clientportal.use": ["admin", "partner", "lawyer", "litigation"],
-  "signatures.request": ["admin", "partner", "lawyer"],
   // Enquiries: front desk logs them; lawyers clear conflicts, quote and take them on
   "intake.view": ["admin", "partner", "lawyer", "front_desk"],
   "intake.log": ["admin", "partner", "lawyer", "front_desk"],
@@ -72,6 +69,29 @@ export const PERMISSIONS = {
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permission = keyof typeof PERMISSIONS;
+
+/**
+ * Designations sit on top of a role. They do not open any extra files; they
+ * only let the Head of Litigation and Senior Counsel issue invitation codes.
+ */
+export type Designation = "head_of_litigation" | "senior_counsel";
+export const DESIGNATIONS: Record<Designation, { label: string; forRole: Role }> = {
+  head_of_litigation: { label: "Head of Litigation", forRole: "litigation" },
+  senior_counsel: { label: "Senior Counsel", forRole: "lawyer" },
+};
+
+/**
+ * Who may issue invitation codes, and for which roles. Nobody can invite
+ * someone into a role with more access than their own; only the Managing
+ * Partner can bring in a partner, and the admin role is never given by code.
+ */
+export function invitableRoles(u: { role: Role; designation?: Designation | null }): Role[] {
+  if (u.role === "admin") return ["partner", "lawyer", "litigation", "front_desk"];
+  if (u.role === "partner") return ["lawyer", "litigation", "front_desk"];
+  if (u.role === "lawyer" && u.designation === "senior_counsel") return ["lawyer", "litigation", "front_desk"];
+  if (u.role === "litigation" && u.designation === "head_of_litigation") return ["litigation", "front_desk"];
+  return [];
+}
 
 export interface Actor {
   id: string;

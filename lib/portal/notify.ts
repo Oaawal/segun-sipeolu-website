@@ -3,27 +3,15 @@ import { one, q } from "./db";
 import { FIRM } from "./vocab";
 
 /**
- * Sends reminders to the team by email and SMS.
- *
- *   Email: Brevo (BREVO_API_KEY, NOTIFY_FROM_EMAIL, NOTIFY_FROM_NAME)
- *   SMS:   Termii, a Nigerian gateway (TERMII_API_KEY, TERMII_SENDER_ID).
- *          Uses Termii's "dnd" route so messages reach numbers on the
- *          Do-Not-Disturb register; the sender ID must be approved by Termii.
- *
- * Confidentiality: SMS is not encrypted, so texts carry only the matter
- * number, court and time, never client names or case details. The full
- * details are in the email and the portal. Set PORTAL_SMS_DETAIL=full to
- * include matter titles.
- *
- * Every attempt is logged in the notifications table; a reminder with the
- * same dedupe key is never sent twice to the same person.
+ * Sends reminders and alerts to the team by email (Brevo: BREVO_API_KEY,
+ * NOTIFY_FROM_EMAIL, NOTIFY_FROM_NAME). There is no SMS. Emails carry nothing
+ * substantial: see plainEmail below. Every attempt is logged in the
+ * notifications table; a message with the same dedupe key is never sent twice
+ * to the same person.
  */
 
 export function emailEnabled() {
   return !!process.env.BREVO_API_KEY && !!process.env.NOTIFY_FROM_EMAIL;
-}
-export function smsEnabled() {
-  return !!process.env.TERMII_API_KEY && !!process.env.TERMII_SENDER_ID;
 }
 
 /** Nigerian numbers to international format: 0803 402 1136 → 2348034021136. */
@@ -51,25 +39,13 @@ export async function sendEmail(to: { email: string; name: string }, subject: st
   return body.messageId || null;
 }
 
-async function sendSms(to: string, text: string) {
-  const res = await fetch(`${process.env.TERMII_API_BASE || "https://api.ng.termii.com"}/api/sms/send`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ api_key: process.env.TERMII_API_KEY, to, from: process.env.TERMII_SENDER_ID, sms: text, type: "plain", channel: process.env.TERMII_CHANNEL || "dnd" }),
-    signal: AbortSignal.timeout(20_000),
-  });
-  const body = (await res.json().catch(() => ({}))) as { message_id?: string; message?: string; code?: string };
-  if (!res.ok || (body.code && body.code !== "ok")) throw new Error(`SMS provider ${res.status}: ${body.message || "failed"}`);
-  return body.message_id || null;
-}
-
-export interface Recipient { id: string; email: string; full_name: string; phone: string | null; notify_email: boolean; notify_sms: boolean }
+export interface Recipient { id: string; email: string; full_name: string; phone: string | null; notify_email: boolean }
 
 async function alreadySent(userId: string, channel: string, key: string) {
   return !!(await one("SELECT 1 FROM notifications WHERE user_id = $1 AND channel = $2 AND dedupe_key = $3 AND status = 'sent'", [userId, channel, key]));
 }
 
-async function log(r: Recipient, channel: "email" | "sms", kind: string, key: string, recipient: string, subject: string | null, body: string, status: string, ref: string | null, error: string | null) {
+async function log(r: Recipient, channel: "email", kind: string, key: string, recipient: string, subject: string | null, body: string, status: string, ref: string | null, error: string | null) {
   await q(
     "INSERT INTO notifications (id, user_id, channel, kind, dedupe_key, recipient, subject, body, status, provider_ref, error) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING",
     [crypto.randomUUID(), r.id, channel, kind, key, recipient, subject, body.slice(0, 4000), status, ref, error?.slice(0, 500) ?? null],
@@ -77,11 +53,11 @@ async function log(r: Recipient, channel: "email" | "sms", kind: string, key: st
 }
 
 /**
- * Send one message to one person on the channels they allow. Returns what
+ * Send one email to one person, if they allow email. Returns what
  * happened per channel. Never throws: a failed provider is logged.
  */
-export async function notify(r: Recipient, msg: { kind: string; key: string; subject: string; html: string; text: string; sms?: string }) {
-  const out: { email?: string; sms?: string } = {};
+export async function notify(r: Recipient, msg: { kind: string; key: string; subject: string; html: string; text: string }) {
+  const out: { email?: string } = {};
   if (r.notify_email && emailEnabled() && !(await alreadySent(r.id, "email", msg.key))) {
     // Firm policy: nothing substantial goes by email. Whatever the caller wrote,
     // the email only says that something is waiting in the portal.
@@ -93,18 +69,6 @@ export async function notify(r: Recipient, msg: { kind: string; key: string; sub
     } catch (err) {
       await log(r, "email", msg.kind, msg.key, r.email, mail.subject, mail.text, "failed", null, String((err as Error).message));
       out.email = "failed";
-    }
-  }
-  const phone = normalisePhone(r.phone);
-  if (msg.sms && r.notify_sms && phone && smsEnabled() && !(await alreadySent(r.id, "sms", msg.key))) {
-    const text = msg.sms.slice(0, 459); // three SMS pages at most
-    try {
-      const ref = await sendSms(phone, text);
-      await log(r, "sms", msg.kind, msg.key, phone, null, text, "sent", ref, null);
-      out.sms = "sent";
-    } catch (err) {
-      await log(r, "sms", msg.kind, msg.key, phone, null, text, "failed", null, String((err as Error).message));
-      out.sms = "failed";
     }
   }
   return out;
@@ -119,9 +83,8 @@ const PLAIN: Record<string, [string, string]> = {
   digest: ["Your morning summary is ready", "You have court dates, tasks or deadlines coming up."],
   served: ["A document served needs your attention", "A document has been logged in the service register for you."],
   enquiry: ["A new enquiry is waiting", "A new enquiry has come in."],
-  client_message: ["A client has sent you something", "There is a new message or document from a client."],
-  signature: ["A signature request has an answer", "Someone has responded to a signature request you sent."],
   overdue_invoices: ["Billing needs your attention", "Some invoices on your matters are overdue."],
+  signup: ["A new account is waiting for approval", "Someone has asked for an account. Approve or refuse it on the People page."],
   error_alert: ["The portal needs attention", "The portal recorded errors. Details are on the System page."],
 };
 

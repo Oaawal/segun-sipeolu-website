@@ -9,8 +9,6 @@ import { clientAccountBalance, listInvoices, matterExpenses, matterTime, matterW
 import { BILLING_TYPES, hoursLabel, naira } from "@/lib/portal/money";
 import { ExpenseForm, ExpenseList, InvoiceRows, TimeForm, TimeList, TimerCard } from "@/components/portal/Billing";
 import { draftInvoice, saveMatterBilling } from "../../billing/actions";
-import { cancelSignature, replyToClient, requestSignature, setDocumentShared, setMatterShared } from "../client-actions";
-import { CopyButton } from "@/components/portal/CopyButton";
 import { activeWorkflows } from "@/lib/portal/workflows";
 import { applyChecklist } from "../../checklists/actions";
 import { ago, daysUntil, dueLabel, fmtDateTime, fmtDay, isUuid, today } from "@/lib/portal/format";
@@ -25,10 +23,10 @@ import { addMember, addNote, addParty, removeMember, removeParty, updateMatter }
 
 export const metadata = { title: "Matter" };
 
-const TABS = ["overview", "diary", "documents", "tasks", "notes", "meetings", "register", "billing", "client", "parties", "team", "details", "activity"] as const;
+const TABS = ["overview", "diary", "documents", "tasks", "notes", "meetings", "register", "billing", "parties", "team", "details", "activity"] as const;
 type Tab = (typeof TABS)[number];
 
-export default async function MatterPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; msg?: string; link?: string; emailed?: string }> }) {
+export default async function MatterPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; msg?: string }> }) {
   const u = await requireUser();
   const { id } = await params;
   const sp = await searchParams;
@@ -72,9 +70,9 @@ export default async function MatterPage({ params, searchParams }: { params: Pro
     />
   );
   const tabs = (
-    <Tabs active={tab} tabs={TABS.filter((t) => (t !== "activity" || can(u, "audit.view") || isLead || u.role === "partner") && (t !== "billing" || can(u, "billing.record_time")) && (t !== "client" || can(u, "clientportal.use"))).map((t) => ({
+    <Tabs active={tab} tabs={TABS.filter((t) => (t !== "activity" || can(u, "audit.view") || isLead || u.role === "partner") && (t !== "billing" || can(u, "billing.record_time"))).map((t) => ({
       key: t, href: t === "overview" ? base : `${base}?tab=${t}`,
-      label: { overview: "Overview", diary: "Court diary", documents: "Documents", tasks: "Tasks", notes: "Notes", meetings: "Meetings", register: "Service", billing: "Billing", client: "Client portal", parties: "Parties", team: "Team", details: "Details", activity: "Activity" }[t],
+      label: { overview: "Overview", diary: "Court diary", documents: "Documents", tasks: "Tasks", notes: "Notes", meetings: "Meetings", register: "Service", billing: "Billing", parties: "Parties", team: "Team", details: "Details", activity: "Activity" }[t],
     }))} />
   );
 
@@ -282,83 +280,6 @@ export default async function MatterPage({ params, searchParams }: { params: Pro
             </Card>
           )}
         </div>
-      </div>
-    );
-  }
-
-  if (tab === "client" && can(u, "clientportal.use")) {
-    const shared = !!(await one<{ s: boolean }>("SELECT share_with_client AS s FROM matters WHERE id = $1", [m.id]))?.s;
-    const [messages, docs, people, sigs] = await Promise.all([
-      q<{ id: string; from_client: boolean; body: string; created_at: string; author: string | null; document_id: string | null; read_at: string | null }>(
-        `SELECT x.id, x.from_client, x.body, x.created_at, COALESCE(cu.full_name, us.full_name) AS author, x.document_id, x.read_at
-         FROM client_messages x LEFT JOIN client_users cu ON cu.id = x.client_user_id LEFT JOIN users us ON us.id = x.staff_user_id WHERE x.matter_id = $1 ORDER BY x.created_at`, [m.id]),
-      q<{ id: string; title: string; shared_with_client: boolean; from_client: boolean; privileged: boolean; uploaded_at: string }>(
-        "SELECT id, title, shared_with_client, from_client, privileged, uploaded_at FROM documents WHERE matter_id = $1 AND owner_type = 'matter' AND deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT 200", [m.id]),
-      q<{ full_name: string; email: string; active: boolean; has_password: boolean }>("SELECT full_name, email, active, password_hash IS NOT NULL AS has_password FROM client_users WHERE client_id = $1 ORDER BY full_name", [m.client_id]),
-      q<{ id: string; title: string; signer_name: string; signer_email: string; status: string; created_at: string; signed_at: string | null; expires_at: string; signed_name: string | null }>(
-        "SELECT s.id, d.title, s.signer_name, s.signer_email, CASE WHEN s.status = 'sent' AND s.expires_at < now() THEN 'expired' ELSE s.status END AS status, s.created_at, s.signed_at, s.expires_at, s.signed_name FROM signature_requests s JOIN documents d ON d.id = s.document_id WHERE s.matter_id = $1 ORDER BY s.created_at DESC", [m.id]),
-    ]);
-    const hidden = (name: string, v: string) => <input type="hidden" name={name} value={v} />;
-    body = (
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-        <div className="space-y-6">
-          {sp.link && <Note tone="ok"><div className="space-y-2"><div>{sp.emailed ? "Emailed to the signer. " : ""}Signing link (works once):</div><div className="flex gap-2"><input readOnly value={sp.link} className="min-w-0 flex-1 rounded border border-stone-300 bg-white px-2 py-1 text-xs text-stone-700" /><CopyButton text={sp.link} /></div></div></Note>}
-          <div className={`flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5 ${shared ? "border-green/20 bg-green/5" : "border-stone-200 bg-white"}`}>
-            <div className="min-w-0">
-              <div className="font-semibold text-stone-800">{shared ? "Shared with the client" : "Not shared with the client"}</div>
-              <div className="text-sm text-stone-500">{shared ? "The client sees this matter's status, court dates, the documents ticked below, and messages." : "The client cannot see this matter at all."} {people.length ? `${people.filter((p) => p.active && p.has_password).length} of ${people.length} client sign-ins active.` : "Nobody at the client has portal access yet: invite them on the client's page."}</div>
-            </div>
-            <form action={setMatterShared}>{hidden("matter_id", m.id)}{hidden("on", shared ? "0" : "1")}<button className={shared ? btn.ghost : btn.primary}>{shared ? "Stop sharing" : "Share with client"}</button></form>
-          </div>
-          <Card title="Messages with the client">
-            {messages.length === 0 ? <p className="text-sm text-stone-500">No messages yet.</p> : (
-              <ol className="space-y-3">
-                {messages.map((x) => (
-                  <li key={x.id} className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${x.from_client ? "bg-cream text-stone-800" : "ml-auto bg-maroon text-white"}`}>
-                    <div className="whitespace-pre-line">{x.body}</div>
-                    {x.document_id && <a href={`/portal/api/files/${x.document_id}`} className={`mt-1 block text-xs font-semibold ${x.from_client ? "text-maroon" : "text-gold"}`}>Attached document</a>}
-                    <div className={`mt-1 text-[11px] ${x.from_client ? "text-stone-400" : "text-white/60"}`}>{x.author || "—"} · {fmtDateTime(x.created_at)}{x.from_client && !x.read_at ? " · new" : ""}</div>
-                  </li>
-                ))}
-              </ol>
-            )}
-            <form action={replyToClient} className="mt-5 space-y-3 border-t border-stone-100 pt-4">
-              {hidden("matter_id", m.id)}
-              <TextArea label="Reply to the client" name="body" rows={3} required placeholder="The client gets an email saying a message is waiting." />
-              <button className={btn.primary} disabled={!shared}>Send</button>
-            </form>
-          </Card>
-          {can(u, "signatures.request") && (
-            <Card title="Signatures" pad={false}>
-              {sigs.map((s) => (
-                <Row key={s.id}>
-                  <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{s.title}</div><div className="text-xs text-stone-500">{s.signer_name} ({s.signer_email}) · sent {fmtDay(s.created_at)}{s.signed_at ? ` · signed ${fmtDateTime(s.signed_at)} as “${s.signed_name}”` : ""}</div></div>
-                  <Badge tone={s.status === "signed" ? "green" : s.status === "sent" ? "amber" : s.status === "declined" ? "red" : "grey"}>{{ sent: "Waiting", signed: "Signed", declined: "Declined", cancelled: "Cancelled", expired: "Expired" }[s.status] || s.status}</Badge>
-                  {s.status === "sent" && <form action={cancelSignature}>{hidden("matter_id", m.id)}{hidden("request_id", s.id)}<button className={btn.small}>Cancel</button></form>}
-                </Row>
-              ))}
-              <form action={requestSignature} className="space-y-3 border-t border-stone-100 p-5">
-                {hidden("matter_id", m.id)}
-                <Select label="Document to sign" name="document_id" options={docs.map((d) => [d.id, d.title])} blank={docs.length ? undefined : "Upload the document first"} required />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><Field label="Signer's name" name="signer_name" required /><Field label="Signer's email" name="signer_email" type="email" required /></div>
-                <TextArea label="Message (optional)" name="message" rows={2} />
-                <Field label="Link works for (days)" name="days" type="number" min={1} max={30} defaultValue="14" />
-                <button className={btn.ghost}>Request signature</button>
-                <p className="text-xs text-stone-500">The signer reads the exact file, types their full name and confirms. We record the time, their network address and the file&apos;s fingerprint, so a changed file can never be passed off as signed.</p>
-              </form>
-            </Card>
-          )}
-        </div>
-        <Card title="Documents the client can see" pad={false}>
-          {docs.length === 0 ? <Empty icon={<FileDown className="h-8 w-8" />} title="No documents on this matter" /> : docs.map((d) => (
-            <Row key={d.id}>
-              <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{d.title}</div><div className="text-xs text-stone-500">{d.from_client ? "From the client · " : ""}{fmtDay(d.uploaded_at)}{d.privileged ? " · privileged" : ""}</div></div>
-              {d.from_client ? <Badge tone="blue">Client&apos;s</Badge> : (
-                <form action={setDocumentShared}>{hidden("matter_id", m.id)}{hidden("document_id", d.id)}{hidden("on", d.shared_with_client ? "0" : "1")}<button className={d.shared_with_client ? `${btn.small} border-green/40 text-green` : btn.small}>{d.shared_with_client ? "Shared" : "Share"}</button></form>
-              )}
-            </Row>
-          ))}
-        </Card>
       </div>
     );
   }

@@ -17,7 +17,7 @@ export async function recordError(message: string, path: string | null, digest: 
   const count = await one<{ n: number }>("SELECT COUNT(*)::int AS n FROM error_log WHERE at > now() - interval '1 hour'");
   const href = `${portalUrl()}/admin/system`;
   for (const a of admins) {
-    await notify({ ...a, notify_email: true, notify_sms: false }, {
+    await notify({ ...a, notify_email: true }, {
       kind: "error_alert", key: `errors:${hour}`, subject: "Portal error alert",
       html: emailLayout("The portal hit an error", [{ heading: "Latest", items: [{ title: message.slice(0, 160), detail: `${path || ""}${digest ? ` · ref ${digest}` : ""}` }] }], `${count?.n ?? 1} error(s) in the last hour. Details are on the System page. You get at most one of these emails an hour.`, href),
       text: `The portal hit an error: ${message.slice(0, 160)} (${path || ""}). ${href}`,

@@ -1,8 +1,6 @@
 import { requirePermission } from "@/lib/portal/auth";
 import { q } from "@/lib/portal/db";
 import { billingSettings } from "@/lib/portal/billing";
-import { paystackEnabled } from "@/lib/portal/paystack";
-import { siteUrl } from "@/lib/portal/client-mail";
 import { ROLES, type Role } from "@/lib/portal/permissions";
 import { Card, Field, Flash, Note, PageHeader, Select, TextArea, btn } from "@/components/portal/ui";
 import { saveBillingSettings } from "../actions";
@@ -44,11 +42,7 @@ export default async function BillingSettings({ searchParams }: { searchParams: 
           <p className="mt-4 text-xs text-stone-500">A new rate applies to time recorded from now on. Time already recorded keeps the rate it was recorded at.</p>
         </Card>
         <div className="space-y-4 xl:col-span-2">
-          <Note tone={paystackEnabled() ? "ok" : "info"}>
-            {paystackEnabled()
-              ? <>Online payments are on (Paystack). Set the webhook in your Paystack dashboard to <strong>{siteUrl()}/portal/api/paystack/webhook</strong> so payments are recorded even if the client closes the page.</>
-              : <>Online card payments are off. Add <strong>PAYSTACK_SECRET_KEY</strong> to the server settings to let clients pay invoices by card, transfer or USSD.</>}
-          </Note>
+          <Note tone="info">Invoices and receipts are printed or downloaded as Word files and given to clients by the partners. Nothing is sent to clients from the portal, and there is no online payment.</Note>
           <button className={btn.primary}>Save settings</button>
         </div>
       </form>

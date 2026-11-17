@@ -2,18 +2,19 @@
 
 The private staff area of the website, at `/portal`. It holds the firm's
 clients, matters, court diary, service register, tasks, documents and
-meetings, and sends reminders by email and SMS. This guide is for whoever
+meetings, and sends reminders by email (never SMS). This guide is for whoever
 runs it: the Managing Partner, an IT provider, or a developer.
 
 ## What it does
 
 | Area | What it is for |
 |---|---|
+| **Accounts** | Staff create their own account at `/portal/signup`. With an **invitation code** the account is ready at once, in the role the code was made for. Without a code it **waits for the Managing Partner's approval**, who chooses the role (and can refuse). Codes are made on the *Invitation codes* page by the Managing Partner, partners, Senior Counsel and the Head of Litigation; each works once, for one role, for 7 days, and nobody can invite into a role with more access than their own (only the Managing Partner can bring in a partner). Senior Counsel and Head of Litigation are designations the Managing Partner sets on the People page. |
 | **Today** | Each person's day: court this week, their tasks, responses due, their matters. |
 | **Matters** | Every file: parties, team, notes, court history, documents, tasks, meetings, service. Numbered `SSA/LIT/2026/0001` (LIT, ARB, DRC, ADV, TRN, REG, GEN). |
 | **Conflict check** | Runs before any matter can be opened. Searches every client and party on every matter, including walled-off ones, ignoring titles, word order and "Ltd/Plc". Each check is logged. |
 | **Court diary** | Every sitting. Recording an adjournment creates the next date and an optional preparation deadline. Printable daily cause list, also exported to Word. |
-| **Service register** | Every process or letter served *on* the firm (`IN/2026/…`) and *by* the firm (`OUT/2026/…`): how, when, by whom, proof, scans, and the response deadline, which becomes a task and an instant email/SMS to the responsible lawyer. |
+| **Service register** | Every process or letter served *on* the firm (`IN/2026/…`) and *by* the firm (`OUT/2026/…`): how, when, by whom, proof, scans, and the response deadline, which becomes a task and an instant email nudge to the responsible lawyer. |
 | **Tasks** | From people, the diary, the register and meeting minutes. |
 | **Meetings & minutes** | Record in the browser (phone or laptop), upload a recording, or paste a Zoom/Teams/Meet transcript. Speech-to-text with speaker labels, then AI-drafted minutes: summary, decisions, action items (one click to tasks), deadlines, risks and a draft follow-up email. A lawyer must approve them. |
 | **Documents** | Encrypted, fingerprinted, versioned. Downloadable for editing; saved back from Word with the add-in. |
@@ -22,29 +23,27 @@ runs it: the Managing Partner, an IT provider, or a developer.
 | **Bulk import** | Drop or choose any number of files, whole folders with all their subfolders (e.g. from a mapped network drive, or Google Drive / OneDrive for desktop), or a .zip (e.g. a folder downloaded from Google Drive), which is unpacked into separate documents. Each file's folder path is kept and searchable. Hidden system files are skipped; three files upload at a time with progress shown. |
 | **Duplicates** | A file identical to one already stored is saved without using extra storage and flagged at once; a different file with exactly the same words (e.g. the same letter saved again as PDF) is flagged once read. Ignoring letter case and spacing, any difference, even one word, means it is not a duplicate. Flagged copies appear on the **Duplicates** page for the **litigation team only** (not partners), with a count in their menu; no email is sent. They open both documents to compare (recorded in the audit trail), then remove the copy (freeing its storage) or keep both. Copies on walled-off matters appear only to litigation staff on that matter's team, and private inboxes are never shown. Nothing is removed automatically. The morning job also checks everything stored. |
 | **Ask** | Questions in plain English ("What happened at the last sitting in Adeyemi?", "Brief me for today"), answered by Claude from the records the person could open themselves, each fact citing its source. Never sees a walled-off matter the person is not on. Every question is recorded. |
-| **Time & billing** | Time recorded by hand or with a timer (6-minute units), disbursements, hourly rates per fee earner. Invoices drafted from unbilled work plus fixed fees, in naira with 7.5% VAT on fees (not disbursements). A partner issues them (numbered `SSA/INV/2026/0001`, then locked), records payments, emails the invoice with a payment link, or voids it. Clients pay online by card, transfer or USSD through Paystack; payments are verified with Paystack and recorded once. Printable and Word versions. Partners see billed, collected, owed, unbilled work, who owes and for how long (0–30/31–60/61–90/90+ days), and hours by person; overdue invoices are emailed to the responsible partner every Monday. |
-| **Client account** | Money held for clients, per matter: receipts, payments out, transfers to the office account to pay an invoice. Entries can never be edited or deleted (corrections are reversing entries), and paying out more than is held is refused. |
-| **Client portal** | `/client`: clients sign in (password plus a code emailed each time) to see matters the firm chooses to share, court dates, documents ticked for them, invoices (with the payment link), and to message their lawyers or send documents. Separate accounts, sessions and cookie from staff. Partners invite people from the client's page; each matter's *Client portal* tab controls sharing. |
-| **Electronic signatures** | From a matter's *Client portal* tab: send any document for signature. The signer downloads the exact file, types their name and confirms; the portal records the time, network address and the file's SHA-256 (a changed file cannot be signed) as a note on the matter. |
+| **Time & billing** | For the partners only (the Managing Partner included). Time recorded by hand or with a timer (6-minute units), disbursements, hourly rates per fee earner. Invoices drafted from unbilled work plus fixed fees, in naira with 7.5% VAT on fees (not disbursements). A partner issues them (numbered `SSA/INV/2026/0001`, then locked), prints or downloads them in Word and gives them to the client themselves. Payments received are recorded by hand, each with a numbered receipt (`SSA/RCP/2026/0001`) to print or download in Word. Blank Invoice and Official receipt templates (partners only) are on the Templates tab. Nothing is sent to clients and there is no online payment. Partners see billed, collected, owed, unbilled work, who owes and for how long, and hours by person. |
+| **Client account** | Partners only. Money held for clients, per matter: receipts, payments out, transfers to the office account to pay an invoice. Entries can never be edited or deleted (corrections are reversing entries), and paying out more than is held is refused. |
 | **Enquiries** | The website's contact form now creates an enquiry (with spam protection) and emails partners and front desk; front desk can also log walk-ins and calls. Each enquiry gets an automatic conflict check, a recorded result, a fee quote, and one click to create the client and open the matter with everything filled in. |
 | **Checklists** | The firm's standard steps per kind of work (starters: defending a claim, filing a claim, property purchase, CAC incorporation, debt recovery). Chosen when opening a matter or applied later; they become dated tasks. |
 | **Deadlines** | Works out dates from periods in the rules of court, skipping weekends and Nigerian public holidays (fixed ones added per year; Eid and Mawlid added when declared). Nothing is pre-loaded: each rule is entered with its authority and must be confirmed by a partner before it can be used. The date can be set as a served document's response date or a matter task. |
 | **Word** | Exports (matter summary, minutes, cause list) and the "Save to Portal" add-in for Word. |
 | **Mailbox** | Each person connects their own firm email (IMAP/SMTP): read, reply, forward, send, and file any email (.eml, opens in Outlook) or attachment to a matter in one click. Emails display with scripts blocked and internet pictures off. Nobody can open a colleague's mailbox. |
 | **Email to the portal** | Forward or send to the intake address (e.g. `portal@segunsipeolu.com`) and the email and attachments land in your Inbox. `[SSA/LIT/2026/0001]` in the subject files it onto that matter. Only verified staff senders are accepted. |
-| **Templates** | The firm's precedents as Word files with `{{fields}}` (client, matter, court, suit number, parties, next date, service details…). Generate for a matter in one click: it downloads to open in Word and a copy is saved on the matter. Starter letter of engagement, letter of demand and affidavit of service included. |
+| **Templates** | The documents the firm uses time to time, in one place. **Fill-in templates**: Word files with `{{fields}}` (client, matter, court, suit number, parties, next date, service details…), generated for a matter in one click (downloads to open in Word; a copy is saved on the matter). **Reference documents**: any file (PDF, Word, Excel, PowerPoint, pictures) kept for reference. Everything can be previewed in the page (PDFs and pictures as they are, Word documents as a readable page, others as text) and downloaded. Each document can be visible to everyone or only to chosen roles (e.g. partners only); the Managing Partner always sees all. Anyone except front desk can add documents; everyone can browse and preview what they are allowed to see. Starters: letter of engagement, letter of demand, affidavit of service, invoice and official receipt. |
 | **Calendar sync** | Each person's private calendar address for Google, Outlook or iPhone: court dates, deadlines, tasks, responses due, company filings and (admin) renewals. Matter numbers only by default, because calendar companies keep copies. |
 | **Contacts** | Courts, registries, counsel, bailiffs, agencies, experts and banks, linked to matters; call, WhatsApp, email, or save to phone (vCard). |
 | **Company secretarial** | Client companies: officers, shareholders (with percentages), and filings with due dates. Appointing or removing a director adds a 14-day CAC deadline; filing an annual return or AGM adds next year's. |
 | **Reports** | For partners: open matters, new instructions per month, workload by lawyer and practice area, court outcomes, overdue work by person, company filings due; CSV export. |
 | **Office & IT** | Equipment, licences, subscriptions and domains, with renewal reminders; who has access to which systems (never passwords); a leaver's checklist showing exactly what to collect and revoke. |
-| **Reminders** | Morning email digest per person; SMS for court today/tomorrow and urgent deadlines; instant alert when a document is served. |
-| **Administration** | People and roles, the audit trail (with integrity check), system health, nightly encrypted backups (last 30 kept, downloadable), the error log, and the search-reading status. The Managing Partner is emailed (at most hourly) when the portal hits errors, and anyone signing in from a new kind of device gets an email about it. |
+| **Reminders** | Morning email per person and an instant alert when a document is served, each saying only that something is waiting. No SMS. |
+| **Administration** | People and roles (approving new accounts, designations), invitation codes, the audit trail (with integrity check), system health, nightly encrypted backups (last 30 kept, downloadable), the error log, and the search-reading status. The Managing Partner is emailed (at most hourly) when the portal hits errors, and anyone signing in from a new kind of device gets an email about it. |
 
 ## Emails carry nothing substantial
 By firm policy, no email from the portal contains anything about a matter: no client or party names, matter or suit numbers, court details, document titles or amounts. Every email to staff only says that something is waiting (e.g. "Your morning summary is ready", "A new enquiry is waiting") with a link to sign in; the details are behind the sign-in. This is enforced in one place (`plainEmail` in `lib/portal/notify.ts`), so no part of the portal can put details in an email by mistake. The only exception is the security notice of a sign-in from a new device, which names the device and time.
 
-Emails to clients and signers carry only a link: an invoice email says an invoice is ready (no number or amount), a signature request says a document is waiting (its name and any note are on the signing page), and a new message says to read it in the client portal. Sign-in codes and password links are sent as before. SMS reminders are unchanged: they carry only matter numbers, court and time, never client names.
+The portal sends nothing to clients at all: there is no client login, no client email and no online payment. There is no SMS.
 
 ## Security (confidentiality, integrity, availability)
 
@@ -62,7 +61,7 @@ Emails to clients and signers carry only a link: an invoice email says an invoic
 - **Ethical walls**: a walled-off matter is visible only to its team, partners included.
 - Sign-in: passwords of at least 12 characters (scrypt hashes); **two-factor sign-in with an authenticator app is required for partners and the admin** (`PORTAL_REQUIRE_2FA=all` extends it to everyone); lockout after 5 wrong attempts; sign-out after 30 minutes idle and 12 hours at most.
 - Files are encrypted at rest (AES-256-GCM) and served only through an authorised route.
-- SMS reminders never contain client names or case details.
+- No SMS is sent, and emails never contain client names or case details.
 
 **Integrity**
 - The audit trail records every sign-in, view, download, change and denied attempt. Each entry is chained to the previous one by SHA-256, and the database refuses edits and deletions. *Audit trail* re-checks the whole chain every time it opens.
@@ -110,7 +109,7 @@ Vercel has no permanent disk and refuses requests over 4.5 MB, so on Vercel the 
    | `STORAGE_S3_ENDPOINT` | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
    | `STORAGE_S3_ACCESS_KEY_ID`, `STORAGE_S3_SECRET_ACCESS_KEY` | from the R2 token |
 
-   Then redeploy. Email, SMS, mail, transcription and AI settings are added the same way when the firm is ready (see `.env.example`).
+   Then redeploy. Email, mail, transcription and AI settings are added the same way when the firm is ready (see `.env.example`).
 4. **Scheduled jobs.** `vercel.json` runs the morning reminders at 06:00 UTC (7am Lagos) and checks the email-to-the-portal mailbox at 06:15 UTC. Vercel's free plan runs scheduled jobs once a day; for email-to-the-portal more often, upgrade, or have a free external scheduler (e.g. cron-job.org) call `/portal/api/cron/mail-intake` with the `Authorization: Bearer <CRON_SECRET>` header every 15 minutes.
 5. **Limits on Vercel.** Uploads from the browser, Word templates, meeting recordings, document versions, register scans and email attachments go straight to R2, so their size is not limited by Vercel. Three paths still pass through Vercel and are limited to about 4.5 MB per file: sharing from a phone's Share menu, the Windows helper, and the Word add-in (Word documents are usually far smaller).
 
@@ -119,7 +118,8 @@ Vercel has no permanent disk and refuses requests over 4.5 MB, so on Vercel the 
 ### First run
 1. Deploy with the settings above, then open `/portal`. It goes to **Set up**.
 2. Enter `PORTAL_SETUP_TOKEN`, then create the Managing Partner's account and set up two-factor.
-3. *People & access → Invite*: each person gets a one-time link (72 hours) to set their password.
+3. *Invitation codes*: make a code for each colleague (or let them create an account and approve it on *People & access*). They create their account at `/portal/signup`.
+4. On *People & access*, set designations: Senior Counsel (lawyers) and Head of Litigation (litigation team) can then make codes too.
 
 ### Reminders and the morning job
 Ask any scheduler to call this every morning at 06:00 UTC (7am Lagos). Besides the reminders it makes the nightly backup, reads new documents for search, and on Mondays emails partners their overdue invoices (on Vercel, `vercel.json` already schedules it):
@@ -135,7 +135,7 @@ On a server, use crontab:
 0 6 * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://www.segunsipeolu.com/portal/api/cron/reminders
 ```
 
-Running it twice sends nothing twice. *System & backups* shows each run and every message sent. Email uses Brevo (`BREVO_API_KEY`, verified sender `NOTIFY_FROM_EMAIL`). SMS uses Termii (`TERMII_API_KEY` and an approved `TERMII_SENDER_ID`).
+Running it twice sends nothing twice. *System & backups* shows each run and every message sent. Email uses Brevo (`BREVO_API_KEY`, verified sender `NOTIFY_FROM_EMAIL`).
 
 ### Mailbox and email to the portal
 - Set `MAIL_IMAP_HOST`/`MAIL_SMTP_HOST` (and ports) so staff only enter their address and password under *Mailbox*. With Google Workspace or Microsoft 365, staff need an app password (IMAP must be allowed for the account).
@@ -147,15 +147,10 @@ Running it twice sends nothing twice. *System & backups* shows each run and ever
 - Before switching either on, check the provider's data-processing terms (no training on your data, deletion after processing). Recordings are privileged.
 - Recording requires everyone present to have agreed; the portal asks for this confirmation first.
 
-### Billing and payments
+### Billing (partners only)
 - *Time & billing → Rates & invoice settings* (Managing Partner): bank details, days to pay, TIN, VAT on/off, footer note, hourly rates.
-- Paystack: create an account, add `PAYSTACK_SECRET_KEY` (start with the test key), and set the webhook URL in the Paystack dashboard to `<PORTAL_URL>/portal/api/paystack/webhook`.
+- Issue an invoice, then print it or download it in Word and give it to the client yourself. Record each payment received; download its receipt in Word to print or send.
 - The client account follows the usual rule that client money is kept apart; a partner should confirm how the firm's actual bank accounts map to it, and the Rules of Professional Conduct that apply.
-
-### Client portal and signatures
-- Requires email (Brevo) for the sign-in codes and invitations. Without email, invitation links are shown to copy, and sign-in has no emailed code.
-- Before inviting clients, a partner should approve the wording of the client-facing pages and the firm's privacy notice (NDPA 2023).
-- Electronic signatures rely on section 93 of the Evidence Act 2011. For documents that the law requires to be signed in a particular way (e.g. deeds needing witnesses, or instruments for stamping and registration), sign on paper.
 
 ### Deadlines and checklists
 - Enter each period from the current rules (court, event, action, days, authority). A partner confirms it before it is offered. Add the year's fixed public holidays on the *Public holidays* tab each January, and Eid/Mawlid dates when the Federal Government declares them.
@@ -177,7 +172,7 @@ Running it twice sends nothing twice. *System & backups* shows each run and ever
 - **The Managing Partner's authenticator.** If that phone is lost, another admin can reset the account. Keep two admins.
 
 ## For developers
-- Tests: the end-to-end suites (Playwright, with stand-ins for Deepgram, Brevo, Termii, Paystack and Claude) cover every module. GitHub Actions (`.github/workflows/ci.yml`) checks types, lint and the build on every push.
+- Tests: the end-to-end suites (Playwright, with stand-ins for Deepgram, Brevo and Claude) cover every module. GitHub Actions (`.github/workflows/ci.yml`) checks types, lint and the build on every push.
 - Code: `app/portal` (pages and server actions), `app/portal/api` (uploads, downloads, exports, Word, reminders), `lib/portal` (database, security, data access), `components/portal` (UI).
 - Access rules live in one place: `lib/portal/permissions.ts`. Data access in `lib/portal/data.ts` applies them in SQL.
 - Database changes: add a new entry at the end of `lib/portal/schema.ts`. Never edit a shipped migration; they run automatically on start.

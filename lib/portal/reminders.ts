@@ -10,7 +10,7 @@ import { FIRM } from "./vocab";
  * The morning reminders (run once a day, e.g. 7am Lagos):
  *  - an email digest for each person: court today and tomorrow, their tasks
  *    due or overdue, and responses due from the service register;
- *  - a short SMS when they are in court today or tomorrow, or a deadline is
+ *  - (no SMS: the firm does not use it)
  *    due today, tomorrow or overdue.
  * Lawyers and partners get their own matters; the litigation team, front
  * desk and the Managing Partner get the firm's whole court list (never
@@ -65,7 +65,6 @@ export async function sendDigest(p: Person, day = today(), { force = false } = {
   const r = await remindersFor(p, day);
   if (!r.hearings.length && !r.tasks.length && !r.service.length && !r.filings.length && !r.renewals.length && !force) return { skipped: true };
   const url = portalUrl();
-  const detailSms = process.env.PORTAL_SMS_DETAIL === "full";
   const html = emailLayout(
     `Good morning, ${p.full_name.split(" ")[0]}`,
     [
@@ -88,30 +87,19 @@ export async function sendDigest(p: Person, day = today(), { force = false } = {
     url,
   ].join("\n");
 
-  // SMS only for what is urgent; matter numbers, never client names
-  const urgentTasks = r.tasks.filter((t) => t.due_on <= addDays(day, 1));
-  const urgentService = r.service.filter((s) => s.response_due <= addDays(day, 1));
-  const smsParts = [
-    ...r.hearings.map((h) => `Court ${h.sitting_on === day ? "today" : "tmrw"} ${h.sitting_time || ""} ${h.court.split(",")[0]}: ${detailSms ? h.title : h.number} (${h.business})`),
-    ...(urgentTasks.length ? [`${urgentTasks.length} task${urgentTasks.length === 1 ? "" : "s"} due${urgentTasks.some((t) => t.due_on < day) ? " incl. overdue" : ""}`] : []),
-    ...(urgentService.length ? [`${urgentService.length} response${urgentService.length === 1 ? "" : "s"} due`] : []),
-    ...(r.filings.some((f) => f.due_on <= addDays(day, 1)) ? ["company filing due"] : []),
-  ];
-  const sms = smsParts.length ? `${FIRM.short}: ${smsParts.join("; ")}. Details in the portal.` : undefined;
-  return notify(p, { kind: "digest", key: `digest:${day}`, subject: `${r.hearings.length ? `Court: ${r.hearings.length} · ` : ""}${r.tasks.length + r.service.length + r.filings.length} due · ${fmtDay(day, { day: "numeric", month: "short" })}`, html, text, sms });
+  return notify(p, { kind: "digest", key: `digest:${day}`, subject: `${r.hearings.length ? `Court: ${r.hearings.length} · ` : ""}${r.tasks.length + r.service.length + r.filings.length} due · ${fmtDay(day, { day: "numeric", month: "short" })}`, html, text });
 }
 
 /** Run the morning reminders for everyone. Safe to call more than once a day. */
 export async function runReminders({ day = today(), actor = "system:reminders" } = {}) {
-  const people = await q<Person>("SELECT id, email, full_name, phone, role, notify_email, notify_sms FROM users WHERE active AND password_hash IS NOT NULL ORDER BY full_name");
-  let emails = 0, sms = 0, failed = 0;
+  const people = await q<Person>("SELECT id, email, full_name, phone, role, notify_email FROM users WHERE active AND password_hash IS NOT NULL ORDER BY full_name");
+  let emails = 0, failed = 0;
   for (const p of people) {
-    const r = (await sendDigest(p, day)) as { email?: string; sms?: string };
+    const r = (await sendDigest(p, day)) as { email?: string };
     if (r.email === "sent") emails++;
-    if (r.sms === "sent") sms++;
-    if (r.email === "failed" || r.sms === "failed") failed++;
+    if (r.email === "failed") failed++;
   }
-  const detail = { people: people.length, emails, sms, failed };
+  const detail = { people: people.length, emails, failed };
   await q("INSERT INTO job_runs (job, run_date, detail) VALUES ('reminders', $1, $2) ON CONFLICT (job, run_date) DO UPDATE SET ran_at = now(), detail = $2", [day, JSON.stringify(detail)]);
   await audit({ actor, action: "job.reminders", detail, ip: null });
   return detail;
@@ -124,7 +112,7 @@ export async function alertServed(serviceId: string) {
     [serviceId],
   );
   if (!s?.handled_by) return;
-  const p = await one<Person>("SELECT id, email, full_name, phone, role, notify_email, notify_sms FROM users WHERE id = $1 AND active", [s.handled_by]);
+  const p = await one<Person>("SELECT id, email, full_name, phone, role, notify_email FROM users WHERE id = $1 AND active", [s.handled_by]);
   if (!p) return;
   const url = portalUrl();
   const soon = s.response_due && (daysUntil(s.response_due) ?? 99) < 7;
@@ -134,6 +122,5 @@ export async function alertServed(serviceId: string) {
     subject: `Served on the firm: ${s.title}`,
     html: emailLayout("A document was served on the firm", [{ heading: "Service register", items: [{ title: s.title, detail: `${s.number}${s.matter_number ? ` · ${s.matter_number}` : ""} · from ${s.party} · ${due}`, href: `${url}/register/${s.id}`, tag: "New" }] }], "You are responsible for this document.", url),
     text: `Served on the firm: ${s.title} (${s.number}) from ${s.party}. ${due}\n${url}/register/${s.id}`,
-    sms: `${FIRM.short}: document served (${s.number}${s.matter_number ? `, ${s.matter_number}` : ""}). ${due} See the portal.`,
   });
 }

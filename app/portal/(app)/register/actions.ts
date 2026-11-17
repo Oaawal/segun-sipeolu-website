@@ -66,7 +66,7 @@ export async function createEntry(fd: FormData) {
     }
     await audit({ userId: u.id, actor: u.email, action: "service.logged", entityType: "service", entityId: id, matterId, detail: { number, direction, kind, due } }, t);
   });
-  // Tell the responsible lawyer straight away, by email and SMS
+  // Tell the responsible lawyer straight away (an email that says only that something is waiting)
   if (direction === "in" && handledBy) after(() => alertServed(id));
   redirect(`/portal/register/${id}?msg=created`);
 }

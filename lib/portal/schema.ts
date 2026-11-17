@@ -901,4 +901,53 @@ CREATE TABLE document_duplicates (
 CREATE INDEX document_duplicates_open ON document_duplicates(status, detected_at);
 `,
   },
+  {
+    id: "0007_staff_only",
+    sql: /* sql */ `
+-- ── No client-facing features, no SMS, no online payment ───────
+DROP TABLE client_messages;
+DROP TABLE client_sessions;
+DROP TABLE client_tokens;
+DROP TABLE client_users;
+DROP TABLE signature_requests;
+ALTER TABLE documents DROP COLUMN shared_with_client;
+ALTER TABLE documents DROP COLUMN from_client;
+ALTER TABLE matters DROP COLUMN share_with_client;
+ALTER TABLE invoices DROP COLUMN pay_token;
+ALTER TABLE payments DROP COLUMN provider_ref;
+ALTER TABLE users DROP COLUMN notify_sms;
+
+-- Each payment gets a numbered receipt: SSA/RCP/2026/0001
+ALTER TABLE payments ADD COLUMN receipt_number TEXT UNIQUE;
+
+-- ── Accounts: sign up with an invitation code, or ask for approval ──
+-- designation: who may issue invitation codes besides admins and partners
+ALTER TABLE users ADD COLUMN designation TEXT CHECK (designation IN ('head_of_litigation','senior_counsel'));
+ALTER TABLE users ADD COLUMN account_status TEXT NOT NULL DEFAULT 'active' CHECK (account_status IN ('active','pending','rejected'));
+ALTER TABLE users ADD COLUMN requested_role TEXT;
+ALTER TABLE users ADD COLUMN signup_note TEXT;
+ALTER TABLE users ADD COLUMN approved_by UUID;
+ALTER TABLE users ADD COLUMN approved_at TIMESTAMPTZ;
+
+-- One-use invitation codes. Only a hash is kept; the code is shown once to the person who made it.
+CREATE TABLE invite_codes (
+  code_hash    TEXT PRIMARY KEY,
+  hint         TEXT NOT NULL,                 -- last 4 characters, to tell codes apart
+  role         TEXT NOT NULL CHECK (role IN ('partner','lawyer','litigation','front_desk')),
+  note         TEXT,                          -- who it is for
+  created_by   UUID NOT NULL REFERENCES users(id),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at   TIMESTAMPTZ NOT NULL,
+  used_at      TIMESTAMPTZ,
+  used_by      UUID REFERENCES users(id),
+  revoked_at   TIMESTAMPTZ
+);
+CREATE INDEX invite_codes_creator ON invite_codes(created_by, created_at);
+
+-- ── Templates: fill-in templates and reference documents, with visibility ──
+ALTER TABLE templates ADD COLUMN kind TEXT NOT NULL DEFAULT 'fillable' CHECK (kind IN ('fillable','reference'));
+ALTER TABLE templates ADD COLUMN visible_to TEXT;   -- JSON list of roles; NULL = everyone
+ALTER TABLE templates ADD COLUMN mime_type TEXT;
+`,
+  },
 ];

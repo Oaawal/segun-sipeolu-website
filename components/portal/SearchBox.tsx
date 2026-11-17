@@ -132,14 +132,14 @@ export function SearchBox({ dark = false, autoFocus = false, initial = "" }: { d
             else if (e.key === "Escape") { setOpen(false); }
           }}
           placeholder={dark ? "Search  ·  Ctrl+K" : "Names, words inside documents, matter or suit numbers…"}
-          role="combobox" aria-label="Search everything" aria-expanded={open} aria-autocomplete="list"
+          role="combobox" aria-label="Search everything" aria-controls={dark ? "search-results-side" : "search-results-page"} aria-expanded={open} aria-autocomplete="list"
           className={dark
             ? "w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-8 text-sm text-white placeholder:text-white/40 focus:border-gold/50 focus:outline-none"
             : "w-full rounded-xl border border-stone-300 bg-white py-3.5 pl-10 pr-10 text-base text-stone-900 shadow-sm placeholder:text-stone-400 focus:border-maroon focus:outline-none focus:ring-2 focus:ring-maroon/15"} />
         {loading && <Loader2 className={`absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin ${dark ? "text-white/50" : "text-stone-400"}`} />}
       </form>
       {open && term.trim().length >= 2 && (
-        <div role="listbox" className={`absolute z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-stone-200 bg-white p-1 shadow-2xl ${dark ? "left-0 w-[min(30rem,calc(100vw-2rem))]" : "inset-x-0"}`}>
+        <div role="listbox" id={dark ? "search-results-side" : "search-results-page"} className={`absolute z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-stone-200 bg-white p-1 shadow-2xl ${dark ? "left-0 w-[min(30rem,calc(100vw-2rem))]" : "inset-x-0"}`}>
           {ordered.length === 0 ? <div className="px-3 py-4 text-sm text-stone-500">{loading ? "Searching…" : "Nothing you can open matches that yet."}</div> : sections}
           <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => go()} className="mt-1 flex w-full items-center gap-2 border-t border-stone-100 px-3 py-2.5 text-left text-sm font-semibold text-maroon hover:bg-cream/60">
             <Search className="h-4 w-4" />See all results for “{term.trim()}”

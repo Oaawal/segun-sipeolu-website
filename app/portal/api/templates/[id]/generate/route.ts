@@ -1,5 +1,6 @@
 import { checkFileDuplicate, releaseStored, storeDeduped } from "@/lib/portal/dedupe";
 import { indexSoon } from "@/lib/portal/fulltext";
+import { canSeeTemplate } from "@/lib/portal/template-access";
 import { NextResponse, type NextRequest } from "next/server";
 import { currentUser } from "@/lib/portal/auth";
 import { can, canSeeMatter } from "@/lib/portal/permissions";
@@ -25,8 +26,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!u || !u.mfa_passed) return NextResponse.redirect(new URL("/portal/login", req.url), 303);
   if (!can(u, "templates.use")) return new NextResponse("Forbidden", { status: 403 });
   const { id } = await params;
-  const t = isUuid(id) ? await one<{ id: string; title: string; category: string; storage_key: string; sha256: string }>("SELECT id, title, category, storage_key, sha256 FROM templates WHERE id = $1 AND active", [id]) : null;
-  if (!t) return new NextResponse("Not found", { status: 404 });
+  const t = isUuid(id) ? await one<{ id: string; title: string; category: string; storage_key: string; sha256: string; visible_to: string | null }>("SELECT id, title, category, storage_key, sha256, visible_to FROM templates WHERE id = $1 AND active AND kind = 'fillable'", [id]) : null;
+  if (!t || !canSeeTemplate(u, t.visible_to)) return new NextResponse("Not found", { status: 404 });
   const fd = await req.formData();
   const m = await matterFacts(u, fd.get("matter_id"));
   if (!m || !canSeeMatter(u, { confidential: m.confidential, isMember: m.is_member })) return NextResponse.redirect(new URL(`/portal/templates/${id}?msg=denied`, req.url), 303);
