@@ -67,6 +67,8 @@ export const PERMISSIONS = {
   "deadlines.edit": ["admin", "partner", "lawyer"],
   "deadlines.verify": ["admin", "partner"],
   "assistant.use": ["admin", "partner", "lawyer", "litigation"],
+  // The litigation team keeps the document store tidy: they review possible duplicates
+  "documents.review_duplicates": ["litigation"],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permission = keyof typeof PERMISSIONS;

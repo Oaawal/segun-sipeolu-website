@@ -45,7 +45,7 @@ export async function inviteClientUser(fd: FormData) {
   if (emailEnabled() && fd.get("send") === "1") {
     try {
       await sendClientEmail({ to: email, name, subject: "Your client portal with Segun Sipeolu & Associates", heading: "Your client portal is ready",
-        paragraphs: [`Dear ${name},`, `${u.full_name} has given you access to the firm's secure client portal for ${client.name}. There you can follow your matters, see court dates, read and send documents, message your lawyers and pay invoices.`, "Use the button below within 7 days to choose your password."],
+        paragraphs: [`Dear ${name},`, "You have been given access to the firm's secure client portal, where you can follow your matters, read and send documents and message your lawyers.", "Use the button below within 7 days to choose your password."],
         button: { label: "Set up my access", href: link } });
       emailed = true;
     } catch { /* the link is still shown */ }
@@ -106,8 +106,8 @@ export async function replyToClient(fd: FormData) {
   if (emailEnabled()) {
     const people = await q<{ email: string; full_name: string }>("SELECT email, full_name FROM client_users WHERE client_id = $1 AND active AND password_hash IS NOT NULL", [m.client_id]);
     for (const p of people) {
-      await sendClientEmail({ to: p.email, name: p.full_name, subject: `New message from Segun Sipeolu & Associates (${m.number})`, heading: "You have a new message",
-        paragraphs: [`Dear ${p.full_name},`, `${u.full_name} has sent you a message about ${m.number}. For your privacy, please read it in the client portal.`],
+      await sendClientEmail({ to: p.email, name: p.full_name, subject: "You have a new message from Segun Sipeolu & Associates", heading: "You have a new message",
+        paragraphs: [`Dear ${p.full_name},`, "There is a new message for you. For your privacy, please read it in the client portal."],
         button: { label: "Read the message", href: `${siteUrl()}/client/matters/${m.id}` } }).catch(() => {});
     }
   }
@@ -143,8 +143,9 @@ export async function requestSignature(fd: FormData) {
   let emailed = false;
   if (emailEnabled()) {
     try {
-      await sendClientEmail({ to: email, name, subject: `Please sign: ${d.title}`, heading: "A document is ready for your signature",
-        paragraphs: [`Dear ${name},`, `${u.full_name} of Segun Sipeolu & Associates asks you to read and sign "${d.title}".`, ...(message ? [message] : []), `The link works for ${days} days. You will be able to download the document before you sign.`],
+      // The document's name and any note are shown on the signing page, not in the email
+      await sendClientEmail({ to: email, name, subject: "A document from Segun Sipeolu & Associates is waiting for your signature", heading: "A document is ready for your signature",
+        paragraphs: [`Dear ${name},`, "Segun Sipeolu & Associates asks you to read and sign a document.", `The link works for ${days} days. You can read and download the document before you sign.`],
         button: { label: "Read and sign", href: link } });
       emailed = true;
     } catch { /* link shown instead */ }

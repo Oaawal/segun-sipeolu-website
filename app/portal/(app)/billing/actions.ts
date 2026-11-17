@@ -284,17 +284,17 @@ export async function sendInvoice(fd: FormData) {
   if (!emailEnabled()) redirect(withMsg(url, "email_off"));
   const reminder = fd.get("reminder") === "1";
   const payUrl = `${portalUrl().replace(/\/portal$/, "")}/pay/${inv.pay_token}`;
-  const due = Number(inv.total_kobo) - Number(inv.paid_kobo);
+  // No amounts, numbers or matter names in the email: they are on the page behind the link
   await sendClientEmail({
     to, name: inv.client_name,
-    subject: `${reminder ? "Reminder: " : ""}Invoice ${inv.number} from Segun Sipeolu & Associates`,
-    heading: reminder ? `Invoice ${inv.number} is awaiting payment` : `Invoice ${inv.number}`,
+    subject: reminder ? "A reminder from Segun Sipeolu & Associates" : "An invoice from Segun Sipeolu & Associates",
+    heading: reminder ? "An invoice is awaiting payment" : "An invoice is ready for you",
     paragraphs: [
-      `Dear ${inv.client_name},`,
-      reminder ? `This is a reminder that ${naira(due)} remains due on invoice ${inv.number} (${inv.matter_title}), due on ${inv.due_on}.` : `Please find our invoice ${inv.number} for ${inv.matter_title}. The amount due is ${naira(due)}, payable by ${inv.due_on}.`,
-      "You can view the invoice and pay securely by card or bank transfer using the button below. If you have already paid, thank you, and please ignore this message.",
+      "Dear Sir/Madam,",
+      reminder ? "This is a gentle reminder that an invoice from us is awaiting payment." : "An invoice from us is ready for you to view.",
+      "Use the button below to see it and pay securely by card or bank transfer. If you have already paid, thank you, and please ignore this message.",
     ],
-    button: { label: "View and pay the invoice", href: payUrl },
+    button: { label: "View the invoice", href: payUrl },
   });
   await tx(async (t) => {
     await t.query("UPDATE invoices SET last_reminded_at = now() WHERE id = $1", [inv.id]);

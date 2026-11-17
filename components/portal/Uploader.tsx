@@ -82,7 +82,7 @@ export function Uploader({ matters, fixedMatter, direct = false }: { matters?: {
         const err = xhr.status !== 200 ? body.error || "Upload failed" : body.results?.[0]?.error;
         const dup = body.results?.[0]?.duplicate;
         update(key, err ? { state: "error", note: err }
-          : dup ? { state: "duplicate", progress: 100, note: `Same ${dup.match === "file" ? "file" : "contents"} as ${dup.of_title ? `“${dup.of_title}” (${dup.of_where})` : "a document already kept"}. Saved without using extra space; review it under Duplicates.` }
+          : dup ? { state: "duplicate", progress: 100, note: `Same ${dup.match === "file" ? "file" : "contents"} as ${dup.of_title ? `“${dup.of_title}” (${dup.of_where})` : "a document already kept"}. Saved without using extra space; the litigation team will review it.` }
           : { state: "done", progress: 100 });
         resolve();
       };
@@ -193,7 +193,7 @@ export function Uploader({ matters, fixedMatter, direct = false }: { matters?: {
                 {i.state === "done" ? <CheckCircle2 className="h-4 w-4 flex-none text-green" /> : i.state === "duplicate" ? <Copy className="h-4 w-4 flex-none text-amber-600" /> : i.state === "error" ? <XCircle className="h-4 w-4 flex-none text-red-600" /> : <Loader2 className={`h-4 w-4 flex-none text-stone-400 ${i.state === "sending" ? "animate-spin" : ""}`} />}
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-stone-800">{i.name}</div>
-                  {i.state === "error" ? <div className="text-xs text-red-700">{i.note}</div> : i.state === "duplicate" ? <div className="text-xs text-amber-800">{i.note} <a href="/portal/duplicates" className="font-semibold underline">Review</a></div> : (
+                  {i.state === "error" ? <div className="text-xs text-red-700">{i.note}</div> : i.state === "duplicate" ? <div className="text-xs text-amber-800">{i.note}</div> : (
                     <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-stone-100"><div className="h-full rounded-full bg-gradient-to-r from-maroon to-gold transition-all" style={{ width: `${i.progress}%` }} /></div>
                   )}
                 </div>

@@ -2,10 +2,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { one, q, type Queryable } from "./db";
 import { deleteFile, putFile } from "./storage";
-import { notify, emailLayout } from "./notify";
-import { portalUrl } from "./reminders";
 import { docForDownload } from "./documents";
-import type { Actor } from "./permissions";
+import { can, type Actor } from "./permissions";
 
 /**
  * Duplicate documents.
@@ -18,8 +16,8 @@ import type { Actor } from "./permissions";
  *    read for search. Only an exact match counts: letter case and spacing
  *    are ignored, but a single different word means it is not a duplicate.
  *
- * Nothing is ever blocked or removed automatically: the person who uploaded
- * it (or the Managing Partner) decides on the Duplicates page.
+ * Nothing is ever blocked or removed automatically, and no email is sent:
+ * the litigation team decides on the Duplicates page.
  */
 
 const sha = (b: Buffer | string) => createHash("sha256").update(b).digest("hex");
@@ -64,18 +62,25 @@ async function flag(t: Queryable | null, documentId: string, ofId: string, match
   await run("INSERT INTO document_duplicates (document_id, duplicate_of, match) VALUES ($1,$2,$3) ON CONFLICT (document_id) DO NOTHING", [documentId, ofId, match]);
 }
 
-/** Tell the uploader (once a day at most) that something is waiting for review. */
-async function tellUploader(documentId: string) {
-  const p = await one<{ id: string; email: string; full_name: string; phone: string | null; notify_email: boolean; title: string }>(
-    "SELECT u.id, u.email, u.full_name, u.phone, u.notify_email, d.title FROM documents d JOIN users u ON u.id = d.uploaded_by WHERE d.id = $1 AND u.active", [documentId]);
-  if (!p) return;
-  const href = `${portalUrl()}/duplicates`;
-  const day = new Date().toISOString().slice(0, 10);
-  await notify({ ...p, notify_sms: false }, {
-    kind: "duplicate", key: `duplicates:${day}`, subject: "Duplicate documents to review",
-    html: emailLayout("A document you saved looks like a copy", [{ heading: "To review", items: [{ title: p.title, detail: "Its contents are exactly the same as a document already in the portal.", href }] }], "Open Duplicates to remove the copy or keep both. Anything that differs, even by a word, is never flagged.", href),
-    text: `"${p.title}" has exactly the same contents as a document already in the portal. Review it: ${href}`,
-  }).catch(() => {});
+/**
+ * Duplicates are reviewed by the litigation team on the Duplicates page (no
+ * email). They see every flagged pair except documents in someone's private
+ * inbox, and pairs on a walled-off matter unless they are on its team.
+ * $1 must be the reviewer's id; x is the document_duplicates row.
+ */
+export function reviewableSql() {
+  return `NOT EXISTS (
+    SELECT 1 FROM documents z LEFT JOIN matters zm ON zm.id = z.matter_id
+    WHERE z.id IN (x.document_id, x.duplicate_of)
+      AND (z.owner_type = 'inbox'
+        OR (zm.confidential AND NOT EXISTS (SELECT 1 FROM matter_members mm WHERE mm.matter_id = zm.id AND mm.user_id = $1)))
+  )`;
+}
+
+/** May this person open the document to compare it, as part of reviewing an open duplicate? */
+export async function canReviewDocument(u: Actor, documentId: string) {
+  if (!can(u, "documents.review_duplicates")) return false;
+  return !!(await one(`SELECT 1 FROM document_duplicates x WHERE x.status = 'open' AND $2 IN (x.document_id, x.duplicate_of) AND ${reviewableSql()}`, [u.id, documentId]));
 }
 
 /**
@@ -89,7 +94,6 @@ export async function checkFileDuplicate(documentId: string): Promise<{ match: "
     "SELECT id FROM documents WHERE sha256 = $1 AND id <> $2 AND deleted_at IS NULL ORDER BY uploaded_at, id LIMIT 1", [d.sha256, documentId]);
   if (!other) return null;
   await flag(null, documentId, other.id, "file");
-  await tellUploader(documentId);
   return { match: "file", ofId: other.id };
 }
 
@@ -106,7 +110,6 @@ export async function checkContentDuplicate(documentId: string, text: string) {
      ORDER BY d.uploaded_at, d.id LIMIT 1`, [fp, documentId]);
   if (!other) return;
   await flag(null, documentId, other.id, "content");
-  await tellUploader(documentId);
 }
 
 /** Look through everything already stored (for documents saved before this check existed). */

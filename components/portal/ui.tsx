@@ -201,7 +201,7 @@ const MESSAGES: Record<string, [ "ok" | "danger", string ]> = {
   denied: ["danger", "Your role does not allow that. If you need access, ask the Managing Partner."],
   invalid: ["danger", "Some details are missing or not valid. Please check and try again."],
   uploaded: ["ok", "Uploaded. The file is encrypted and its fingerprint recorded."],
-  uploaded_duplicate: ["danger", "Saved, but this file is exactly the same as a document already in the portal. It takes no extra space; review it on the Duplicates page."],
+  uploaded_duplicate: ["danger", "Saved, but this file is exactly the same as a document already in the portal. It takes no extra space; the litigation team will review it."],
   duplicate_removed: ["ok", "Copy removed. The original is kept."],
   duplicate_kept: ["ok", "Both kept. It will not be flagged again."],
   duplicates_scanned: ["ok", "All stored documents checked for duplicates."],

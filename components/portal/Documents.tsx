@@ -51,7 +51,7 @@ export function DocumentList({ docs, ownerType, ownerId, canRemove, canUpload }:
               </div>
             </div>
             <div className="hidden items-center gap-1.5 sm:flex">
-              {d.duplicate && <a href="/portal/duplicates"><Badge tone="amber">Duplicate?</Badge></a>}
+              {d.duplicate && <span title="Same contents as another document. The litigation team reviews it."><Badge tone="amber">Duplicate?</Badge></span>}
               {d.privileged && <Badge tone="maroon"><Lock className="h-3 w-3" />Privileged</Badge>}
               {Number(d.versions) > 1 && <Badge tone="gold">v{d.version}</Badge>}
               <span title={`SHA-256 ${d.sha256}`}><Badge tone="green"><ShieldCheck className="h-3 w-3" />Sealed</Badge></span>

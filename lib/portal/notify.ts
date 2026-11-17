@@ -83,12 +83,15 @@ async function log(r: Recipient, channel: "email" | "sms", kind: string, key: st
 export async function notify(r: Recipient, msg: { kind: string; key: string; subject: string; html: string; text: string; sms?: string }) {
   const out: { email?: string; sms?: string } = {};
   if (r.notify_email && emailEnabled() && !(await alreadySent(r.id, "email", msg.key))) {
+    // Firm policy: nothing substantial goes by email. Whatever the caller wrote,
+    // the email only says that something is waiting in the portal.
+    const mail = plainEmail(msg);
     try {
-      const ref = await sendEmail({ email: r.email, name: r.full_name }, msg.subject, msg.html, msg.text);
-      await log(r, "email", msg.kind, msg.key, r.email, msg.subject, msg.text, "sent", ref, null);
+      const ref = await sendEmail({ email: r.email, name: r.full_name }, mail.subject, mail.html, mail.text);
+      await log(r, "email", msg.kind, msg.key, r.email, mail.subject, mail.text, "sent", ref, null);
       out.email = "sent";
     } catch (err) {
-      await log(r, "email", msg.kind, msg.key, r.email, msg.subject, msg.text, "failed", null, String((err as Error).message));
+      await log(r, "email", msg.kind, msg.key, r.email, mail.subject, mail.text, "failed", null, String((err as Error).message));
       out.email = "failed";
     }
   }
@@ -105,6 +108,29 @@ export async function notify(r: Recipient, msg: { kind: string; key: string; sub
     }
   }
   return out;
+}
+
+// ── Content-free emails ──────────────────────────────────────────
+// Emails never carry matter names, clients, parties, court details, document
+// titles or amounts: they only say that something is waiting, and link to the
+// portal, where the details are behind sign-in. Security notices (a sign-in
+// from a new device) keep their device and time, which are not about any matter.
+const PLAIN: Record<string, [string, string]> = {
+  digest: ["Your morning summary is ready", "You have court dates, tasks or deadlines coming up."],
+  served: ["A document served needs your attention", "A document has been logged in the service register for you."],
+  enquiry: ["A new enquiry is waiting", "A new enquiry has come in."],
+  client_message: ["A client has sent you something", "There is a new message or document from a client."],
+  signature: ["A signature request has an answer", "Someone has responded to a signature request you sent."],
+  overdue_invoices: ["Billing needs your attention", "Some invoices on your matters are overdue."],
+  error_alert: ["The portal needs attention", "The portal recorded errors. Details are on the System page."],
+};
+
+export function plainEmail(msg: { kind: string; subject: string; html: string; text: string }) {
+  if (msg.kind === "new_device" || msg.kind === "test") return { subject: msg.subject, html: msg.html, text: msg.text };
+  const [subject, line] = PLAIN[msg.kind] || ["Something is waiting for you in the portal", "There is something new for you in the portal."];
+  const url = `${(process.env.PORTAL_URL || "").replace(/\/$/, "")}/portal`;
+  const html = emailLayout(subject, [], `${line} For confidentiality, details are only in the portal.`, url);
+  return { subject, html, text: `${line} For confidentiality, details are only in the portal: ${url}` };
 }
 
 // ── Email layout ─────────────────────────────────────────────────
