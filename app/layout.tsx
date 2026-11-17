@@ -13,7 +13,8 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>{children}</body>
+      {/* Browser extensions (e.g. Grammarly) add attributes to <body>; do not warn about them */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }
