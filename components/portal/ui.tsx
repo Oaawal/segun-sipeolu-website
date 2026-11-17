@@ -231,7 +231,7 @@ const MESSAGES: Record<string, [ "ok" | "danger", string ]> = {
   timer_discarded: ["ok", "Timer stopped without recording time."],
   not_draft: ["danger", "Only a draft invoice can be changed. Void it and start a new one instead."],
   invoice_empty: ["danger", "The invoice has nothing to charge yet. Add a fee or time first."],
-  invoice_issued: ["ok", "Invoice issued and numbered. Send it to the client or share the payment link."],
+  invoice_issued: ["ok", "Invoice issued and numbered. Download it (Word or PDF) and send it to the client."],
   payment_recorded: ["ok", "Payment recorded."],
   payment_invalid: ["danger", "That amount is not valid, or is more than the balance due."],
   void_invalid: ["danger", "Give a reason. An invoice with payments on it cannot be voided: reverse the payments first."],
