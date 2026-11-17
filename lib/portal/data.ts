@@ -181,12 +181,14 @@ export async function listTasks(u: Actor, opts: { view?: string; matterId?: stri
 export interface DocRow {
   id: string; series_id: string; version: number; title: string; category: string | null; file_name: string; mime_type: string | null;
   size_bytes: number; sha256: string; privileged: boolean; uploaded_at: string; uploader_name: string | null; versions: number;
+  folder: string | null; duplicate: string | null;
 }
 
 export async function listDocuments(ownerType: string, ownerId: string) {
   // Latest version of each series, with the count of versions
   return q<DocRow>(
-    `SELECT d.*, u.full_name AS uploader_name, (SELECT COUNT(*) FROM documents x WHERE x.series_id = d.series_id AND x.deleted_at IS NULL) AS versions
+    `SELECT d.*, u.full_name AS uploader_name, (SELECT COUNT(*) FROM documents x WHERE x.series_id = d.series_id AND x.deleted_at IS NULL) AS versions,
+            (SELECT dd.match FROM document_duplicates dd WHERE dd.document_id = d.id AND dd.status = 'open') AS duplicate
      FROM documents d LEFT JOIN users u ON u.id = d.uploaded_by
      WHERE d.owner_type = $1 AND d.owner_id = $2 AND d.deleted_at IS NULL
        AND d.version = (SELECT MAX(x.version) FROM documents x WHERE x.series_id = d.series_id AND x.deleted_at IS NULL)
@@ -302,11 +304,82 @@ export async function dashboard(u: Actor) {
   return { sittings, myTasks, serviceDue, recent: recent.slice(0, 6), meetings: meetings.filter((m) => m.status !== "ready").slice(0, 5), counts };
 }
 
+// ── Documents: by name, folder and the words inside ───────────────
+/** SQL condition (documents d, matters m via d.matter_id) for documents this person may open. $1 = user id. */
+export function docsAccessSql(u: Actor) {
+  return `(
+    (d.owner_type = 'matter' AND ${matterAccessSql(u)})
+    OR (d.owner_type = 'service' AND EXISTS (SELECT 1 FROM service_register s WHERE s.id = d.owner_id AND (${can(u, "service.view_all") ? "s.matter_id IS NULL OR " : "(s.matter_id IS NULL AND (s.created_by = $1 OR s.handled_by = $1)) OR "}s.matter_id = m.id)))
+    OR (d.owner_type = 'inbox' AND d.owner_id = $1)
+    OR (d.owner_type = 'meeting' AND EXISTS (SELECT 1 FROM meetings mt WHERE mt.id = d.owner_id AND (mt.created_by = $1 OR (mt.matter_id IS NOT NULL AND mt.matter_id = m.id))))
+  )`;
+}
+
+export const DOC_TYPES: Record<string, { label: string; ext: string[] }> = {
+  pdf: { label: "PDF", ext: ["pdf"] },
+  word: { label: "Word", ext: ["doc", "docx", "dotx", "rtf", "odt"] },
+  excel: { label: "Excel / CSV", ext: ["xls", "xlsx", "csv", "ods"] },
+  slides: { label: "PowerPoint", ext: ["ppt", "pptx"] },
+  image: { label: "Pictures / scans", ext: ["jpg", "jpeg", "png", "webp", "gif", "heic", "tif", "tiff"] },
+  email: { label: "Emails", ext: ["eml", "msg"] },
+  audio: { label: "Recordings", ext: ["mp3", "m4a", "wav", "webm", "ogg", "aac", "mp4"] },
+};
+
+/** Words typed so far as a prefix search: "deed assig" finds "Deed of Assignment" while typing. */
+export function prefixQuery(term: string) {
+  const words = (term.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).filter((w) => w.length >= 2).slice(0, 8);
+  return words.length ? words.map((w) => `${w}:*`).join(" & ") : null;
+}
+
+export interface DocHit {
+  id: string; title: string; file_name: string; owner_type: string; owner_id: string; matter_id: string | null; matter_number: string | null;
+  matter_title: string | null; folder: string | null; uploaded_at: string; size_bytes: number; snippet?: string | null; in_name: boolean;
+}
+
+/**
+ * Find documents the way Windows search does: by file name, title or folder
+ * (any part of it), or by the words inside, including a word still being
+ * typed. Filters: type, saved since, matter. With no words, the filters
+ * alone list documents.
+ */
+export async function searchDocuments(u: Actor, o: { term?: string; type?: string; since?: string; matterId?: string; limit?: number; namesOnly?: boolean }): Promise<DocHit[]> {
+  const term = (o.term || "").trim().slice(0, 100);
+  const params: unknown[] = [u.id];
+  const where = ["d.deleted_at IS NULL", "d.version = (SELECT MAX(x.version) FROM documents x WHERE x.series_id = d.series_id AND x.deleted_at IS NULL)", docsAccessSql(u)];
+  let nameMatch = "FALSE", rank = "0", snippet = "NULL";
+  if (term) {
+    params.push(`%${term.replace(/[%_\\]/g, (c) => "\\" + c)}%`);
+    const like = `$${params.length}`;
+    nameMatch = `(d.title ILIKE ${like} OR d.file_name ILIKE ${like} OR COALESCE(d.folder, '') ILIKE ${like} OR COALESCE(m.number, '') ILIKE ${like} OR COALESCE(m.title, '') ILIKE ${like})`;
+    const pq = o.namesOnly ? null : prefixQuery(term);
+    if (pq) {
+      params.push(pq);
+      const tq = `to_tsquery('english', $${params.length})`;
+      where.push(`(${nameMatch} OR dt.tsv @@ ${tq})`);
+      rank = `ts_rank(dt.tsv, ${tq})`;
+      snippet = `CASE WHEN dt.tsv @@ ${tq} THEN ts_headline('english', left(dt.content, 200000), ${tq}, 'MaxWords=28, MinWords=12, MaxFragments=2, FragmentDelimiter=" … ", StartSel=«, StopSel=»') END`;
+    } else where.push(nameMatch);
+  }
+  const t = o.type ? DOC_TYPES[o.type] : undefined;
+  if (t) { params.push(t.ext); where.push(`lower(substring(d.file_name from '\\.([^.]+)$')) = ANY($${params.length}::text[])`); }
+  if (o.since && /^\d{4}-\d{2}-\d{2}$/.test(o.since)) { params.push(o.since); where.push(`d.uploaded_at >= $${params.length}::date`); }
+  if (o.matterId && /^[0-9a-f-]{36}$/i.test(o.matterId)) { params.push(o.matterId); where.push(`d.matter_id = $${params.length}`); }
+  params.push(Math.min(o.limit || 40, 200));
+  return q<DocHit>(
+    `SELECT d.id, d.title, d.file_name, d.owner_type, d.owner_id, d.matter_id, m.number AS matter_number, m.title AS matter_title, d.folder, d.uploaded_at, d.size_bytes,
+            ${snippet} AS snippet, ${nameMatch} AS in_name
+     FROM documents d LEFT JOIN matters m ON m.id = d.matter_id LEFT JOIN document_text dt ON dt.document_id = d.id
+     WHERE ${where.join(" AND ")}
+     ORDER BY ${[term ? `${nameMatch} DESC` : null, rank !== "0" ? `${rank} DESC` : null, "d.uploaded_at DESC"].filter(Boolean).join(", ")} LIMIT $${params.length}`,
+    params,
+  );
+}
+
 // ── Search everything (only what the person may see) ──────────────
 export interface SearchResults {
   matters: MatterRow[];
   clients: { id: string; name: string; kind: string; email: string | null }[];
-  documents: { id: string; title: string; file_name: string; owner_type: string; owner_id: string; matter_number: string | null; uploaded_at: string; snippet?: string | null }[];
+  documents: DocHit[];
   service: ServiceRow[];
   hearings: HearingRow[];
   meetings: MeetingRow[];
@@ -314,29 +387,10 @@ export interface SearchResults {
 
 export async function searchEverything(u: Actor, term: string): Promise<SearchResults> {
   const like = `%${term.replace(/[%_\\]/g, (c) => "\\" + c)}%`;
-  const docsAccess = `(
-    (d.owner_type = 'matter' AND ${matterAccessSql(u)})
-    OR (d.owner_type = 'service' AND EXISTS (SELECT 1 FROM service_register s WHERE s.id = d.owner_id AND (${can(u, "service.view_all") ? "s.matter_id IS NULL OR " : "(s.matter_id IS NULL AND (s.created_by = $1 OR s.handled_by = $1)) OR "}s.matter_id = m.id)))
-    OR (d.owner_type = 'inbox' AND d.owner_id = $1)
-    OR (d.owner_type = 'meeting' AND EXISTS (SELECT 1 FROM meetings mt WHERE mt.id = d.owner_id AND (mt.created_by = $1 OR (mt.matter_id IS NOT NULL AND mt.matter_id = m.id))))
-  )`;
   const [matters, clients, documents, service, meetings] = await Promise.all([
     u.role === "front_desk" ? Promise.resolve([] as MatterRow[]) : listMatters(u, { status: "all", q: term }),
     can(u, "clients.view") ? q<SearchResults["clients"][number]>("SELECT id, name, kind, email FROM clients WHERE name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1 OR rc_number ILIKE $1 ORDER BY name LIMIT 20", [like]) : Promise.resolve([]),
-    // Titles and file names, plus what is written inside the documents (full-text, ranked).
-    q<SearchResults["documents"][number]>(
-      `SELECT d.id, d.title, d.file_name, d.owner_type, d.owner_id, m.number AS matter_number, d.uploaded_at,
-              CASE WHEN dt.tsv @@ websearch_to_tsquery('english', $3)
-                THEN ts_headline('english', left(dt.content, 200000), websearch_to_tsquery('english', $3), 'MaxWords=28, MinWords=12, MaxFragments=2, FragmentDelimiter=" … ", StartSel=«, StopSel=»')
-              END AS snippet
-       FROM documents d LEFT JOIN matters m ON m.id = d.matter_id LEFT JOIN document_text dt ON dt.document_id = d.id
-       WHERE d.deleted_at IS NULL
-         AND (d.title ILIKE $2 OR d.file_name ILIKE $2 OR m.number ILIKE $2 OR m.title ILIKE $2 OR dt.tsv @@ websearch_to_tsquery('english', $3))
-         AND d.version = (SELECT MAX(x.version) FROM documents x WHERE x.series_id = d.series_id AND x.deleted_at IS NULL)
-         AND ${docsAccess}
-       ORDER BY (d.title ILIKE $2) DESC, ts_rank(dt.tsv, websearch_to_tsquery('english', $3)) DESC NULLS LAST, d.uploaded_at DESC LIMIT 40`,
-      [u.id, like, term],
-    ),
+    searchDocuments(u, { term, limit: 40 }),
     listService(u, { q: term }),
     can(u, "meetings.use") ? listMeetings(u).then((r) => r.filter((x) => (x.title + " " + (x.participants || "") + " " + (x.matter_number || "")).toLowerCase().includes(term.toLowerCase())).slice(0, 15)) : Promise.resolve([] as MeetingRow[]),
   ]);

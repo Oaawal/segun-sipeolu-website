@@ -5,6 +5,7 @@ import { can, ROLES } from "@/lib/portal/permissions";
 import { one } from "@/lib/portal/db";
 import { matterAccessSql } from "@/lib/portal/permissions";
 import { Nav, type NavGroup } from "@/components/portal/Nav";
+import { SearchBox } from "@/components/portal/SearchBox";
 import { Avatar } from "@/components/portal/ui";
 import { logoutAction } from "../auth-actions";
 
@@ -12,11 +13,12 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const u = await requireUser();
-  const counts = await one<{ tasks: number; due: number; inbox: number; enquiries: number; client_msgs: number; timer: boolean }>(
+  const counts = await one<{ tasks: number; due: number; inbox: number; enquiries: number; client_msgs: number; timer: boolean; dups: number }>(
     `SELECT (SELECT COUNT(*) FROM tasks t WHERE t.status = 'open' AND t.assigned_to = $1 AND t.due_on <= CURRENT_DATE) AS tasks,
             (SELECT COUNT(*) FROM enquiries WHERE status = 'new') AS enquiries,
             (SELECT COUNT(*) FROM client_messages x JOIN matter_members mm ON mm.matter_id = x.matter_id AND mm.user_id = $1 WHERE x.from_client AND x.read_at IS NULL) AS client_msgs,
             EXISTS (SELECT 1 FROM timers WHERE user_id = $1) AS timer,
+            (SELECT COUNT(*) FROM document_duplicates x JOIN documents d ON d.id = x.document_id WHERE x.status = 'open' AND d.deleted_at IS NULL AND ${u.role === "admin" ? "TRUE" : "d.uploaded_by = $1"}) AS dups,
             (SELECT COUNT(*) FROM documents d WHERE d.owner_type = 'inbox' AND d.owner_id = $1 AND d.deleted_at IS NULL) AS inbox,
             (SELECT COUNT(*) FROM service_register s LEFT JOIN matters m ON m.id = s.matter_id
               WHERE s.status = 'open' AND s.response_due <= CURRENT_DATE + 3 AND (s.handled_by = $1 OR (s.matter_id IS NOT NULL AND ${matterAccessSql(u)}))) AS due`,
@@ -58,6 +60,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ...(can(u, "reports.view") ? [{ key: "reports", label: "Reports", href: "/portal/reports" }] : []),
         ...(can(u, "office.manage") ? [{ key: "office", label: "Office & IT", href: "/portal/office" }] : []),
         { key: "connect", label: "Save from anywhere", href: "/portal/connect" },
+        ...(u.role === "admin" || Number(counts?.dups) > 0 ? [{ key: "duplicates", label: "Duplicates", href: "/portal/duplicates", badge: counts?.dups || 0 }] : []),
       ],
     },
     ...(can(u, "users.manage")
@@ -101,10 +104,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen print:!hidden w-64 flex-none flex-col bg-gradient-to-b from-maroon-dark to-[#3a1220] px-4 py-5 lg:flex">
         <div className="px-1 pb-5">{brand}</div>
-        <form action="/portal/search" className="relative mb-6">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-          <input name="q" type="search" placeholder="Search everything" aria-label="Search everything" className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm text-white placeholder:text-white/40 focus:border-gold/50 focus:outline-none" />
-        </form>
+        <div className="mb-6"><SearchBox dark /></div>
         <div className="flex-1 overflow-y-auto [scrollbar-width:none]"><Nav groups={groups} /></div>
         {userBox}
       </aside>

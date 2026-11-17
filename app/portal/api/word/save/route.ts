@@ -1,10 +1,11 @@
+import { checkFileDuplicate, releaseStored, storeDeduped } from "@/lib/portal/dedupe";
 import { indexSoon } from "@/lib/portal/fulltext";
 import { NextResponse, type NextRequest } from "next/server";
 import { tokenUser, unauthorized } from "@/lib/portal/api-auth";
 import { ownerAccess } from "@/lib/portal/documents";
 import { one, tx } from "@/lib/portal/db";
 import { audit } from "@/lib/portal/audit";
-import { putFile, deleteFile, MAX_FILE_BYTES } from "@/lib/portal/storage";
+import { MAX_FILE_BYTES } from "@/lib/portal/storage";
 import { isUuid } from "@/lib/portal/format";
 import { DOC_CATEGORIES } from "@/lib/portal/vocab";
 
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
   const category = Object.prototype.hasOwnProperty.call(DOC_CATEGORIES, String(fd.get("category"))) ? String(fd.get("category")) : prev?.category || "other";
   const note = String(fd.get("note") || "").trim().slice(0, 500);
   const name = `${title.replace(/[\\/:*?"<>|\r\n]+/g, "-").slice(0, 150)}.docx`;
-  const stored = await putFile(bytes);
+  const stored = await storeDeduped(bytes);
   const id = crypto.randomUUID();
   const version = isVersion ? prev!.version + 1 : 1;
   try {
@@ -57,9 +58,10 @@ export async function POST(req: NextRequest) {
       await audit({ userId: u.id, actor: u.email, action: isVersion ? "document.new_version" : "document.uploaded", entityType: "document", entityId: id, matterId, detail: { title, version, via: "word", sha256: stored.sha256 }, ip: null }, t);
     });
   } catch (err) {
-    await deleteFile(stored.key).catch(() => {});
+    await releaseStored(stored);
     throw err;
   }
   indexSoon();
-  return NextResponse.json({ ok: true, document_id: id, series_id: isVersion ? series : id, version, title, sha256: stored.sha256 });
+  const dup = await checkFileDuplicate(id);
+  return NextResponse.json({ ok: true, duplicate: !!dup, document_id: id, series_id: isVersion ? series : id, version, title, sha256: stored.sha256 });
 }

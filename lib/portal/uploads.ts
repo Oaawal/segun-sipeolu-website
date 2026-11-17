@@ -18,7 +18,9 @@ export async function readUploads(userId: string, fd: FormData, field: string): 
     if (!isOwnStagedKey(userId, meta.key)) continue;
     const bytes = await takeStaged(meta.key).catch(() => null);
     if (!bytes) continue;
-    out.push(new File([new Uint8Array(bytes)], cleanName(String(meta.name || "file")), { type: String(meta.type || "application/octet-stream") }));
+    // Keep "/" so the folder a file came from survives; saveIncoming splits it off
+    const name = String(meta.name || "file").split("/").map((p) => cleanName(p)).join("/").slice(-400);
+    out.push(new File([new Uint8Array(bytes)], name, { type: String(meta.type || "application/octet-stream") }));
   }
   return out;
 }

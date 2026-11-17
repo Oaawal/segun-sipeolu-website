@@ -874,4 +874,31 @@ CREATE TABLE backups (
 );
 `,
   },
+  {
+    id: "0006_duplicates",
+    sql: /* sql */ `
+-- ── Duplicate documents ────────────────────────────────────────
+-- A file identical to one already stored shares the stored copy (no extra
+-- storage) and is flagged for review. A different file whose words are
+-- exactly the same (e.g. the same letter saved again as PDF) is flagged too.
+-- Anything that differs, even by one word, is not a duplicate.
+ALTER TABLE document_text ADD COLUMN text_sha256 TEXT;
+CREATE INDEX document_text_hash ON document_text(text_sha256);
+CREATE INDEX documents_sha256 ON documents(sha256);
+-- When a removed duplicate's own stored copy is deleted to free space
+ALTER TABLE documents ADD COLUMN purged_at TIMESTAMPTZ;
+-- Folder the file came from when a whole folder (or a .zip) was imported, e.g. "Lekki flat / Receipts"
+ALTER TABLE documents ADD COLUMN folder TEXT;
+CREATE TABLE document_duplicates (
+  document_id   UUID PRIMARY KEY REFERENCES documents(id),
+  duplicate_of  UUID NOT NULL REFERENCES documents(id),
+  match         TEXT NOT NULL CHECK (match IN ('file','content')),
+  status        TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','kept','removed')),
+  detected_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  reviewed_by   UUID REFERENCES users(id),
+  reviewed_at   TIMESTAMPTZ
+);
+CREATE INDEX document_duplicates_open ON document_duplicates(status, detected_at);
+`,
+  },
 ];

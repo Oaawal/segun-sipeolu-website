@@ -47,10 +47,11 @@ export function DocumentList({ docs, ownerType, ownerId, canRemove, canUpload }:
             <div className="min-w-0 flex-1">
               <a href={`/portal/api/files/${d.id}`} target="_blank" rel="noopener" className="block truncate font-semibold text-stone-800 hover:text-maroon">{d.title}</a>
               <div className="truncate text-xs text-stone-500">
-                {DOC_CATEGORIES[d.category as keyof typeof DOC_CATEGORIES] || "Other"} · {fmtSize(Number(d.size_bytes))} · {d.uploader_name || "—"} · {fmtDateTime(d.uploaded_at)}
+                {d.folder ? <span className="text-stone-600">{d.folder} · </span> : null}{DOC_CATEGORIES[d.category as keyof typeof DOC_CATEGORIES] || "Other"} · {fmtSize(Number(d.size_bytes))} · {d.uploader_name || "—"} · {fmtDateTime(d.uploaded_at)}
               </div>
             </div>
             <div className="hidden items-center gap-1.5 sm:flex">
+              {d.duplicate && <a href="/portal/duplicates"><Badge tone="amber">Duplicate?</Badge></a>}
               {d.privileged && <Badge tone="maroon"><Lock className="h-3 w-3" />Privileged</Badge>}
               {Number(d.versions) > 1 && <Badge tone="gold">v{d.version}</Badge>}
               <span title={`SHA-256 ${d.sha256}`}><Badge tone="green"><ShieldCheck className="h-3 w-3" />Sealed</Badge></span>

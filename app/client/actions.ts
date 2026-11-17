@@ -1,5 +1,6 @@
 "use server";
 
+import { checkFileDuplicate, releaseStored, storeDeduped } from "@/lib/portal/dedupe";
 import { redirect } from "next/navigation";
 import { randomInt } from "node:crypto";
 import { one, q, tx } from "@/lib/portal/db";
@@ -9,7 +10,7 @@ import { requestMeta } from "@/lib/portal/auth";
 import { clientCodeRequired, clientMatter, currentClient, endClientSession, requireClient, startClientSession } from "@/lib/portal/client-auth";
 import { sendClientEmail, siteUrl } from "@/lib/portal/client-mail";
 import { emailEnabled, notify, emailLayout } from "@/lib/portal/notify";
-import { putFile, deleteFile, cleanName, mimeFor, uploadProblem } from "@/lib/portal/storage";
+import { cleanName, mimeFor, uploadProblem } from "@/lib/portal/storage";
 import { portalUrl } from "@/lib/portal/reminders";
 import { isUuid } from "@/lib/portal/format";
 import { indexSoon } from "@/lib/portal/fulltext";
@@ -158,12 +159,12 @@ export async function clientPost(fd: FormData) {
   const hasFile = file instanceof File && file.size > 0;
   if (!body && !hasFile) redirect(`/client/matters/${m.id}?msg=empty`);
   let docId: string | null = null;
-  let stored: { key: string; sha256: string } | null = null;
+  let stored: { key: string; sha256: string; reused: boolean } | null = null;
   if (hasFile) {
     const problem = uploadProblem(file);
     if (problem) redirect(`/client/matters/${m.id}?msg=file`);
     const bytes = Buffer.from(await file.arrayBuffer());
-    stored = await putFile(bytes);
+    stored = await storeDeduped(bytes);
     docId = crypto.randomUUID();
     const name = cleanName(file.name || "file");
     try {
@@ -175,10 +176,11 @@ export async function clientPost(fd: FormData) {
         await t.query("INSERT INTO matter_notes (id, matter_id, kind, body) VALUES ($1,$2,'system',$3)", [crypto.randomUUID(), m.id, `Client uploaded a document through the client portal: ${name} (${c.full_name})`]);
       });
     } catch (e) {
-      await deleteFile(stored.key).catch(() => {});
+      await releaseStored(stored);
       throw e;
     }
     indexSoon();
+    await checkFileDuplicate(docId);
   }
   await q("INSERT INTO client_messages (id, matter_id, from_client, client_user_id, body, document_id) VALUES ($1,$2,TRUE,$3,$4,$5)",
     [crypto.randomUUID(), m.id, c.id, body || "(sent a document)", docId]);

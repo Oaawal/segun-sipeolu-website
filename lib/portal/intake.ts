@@ -1,3 +1,4 @@
+import { checkFileDuplicate, describeOriginal, releaseStored, storeDeduped } from "./dedupe";
 import "server-only";
 import { indexSoon } from "./fulltext";
 import { one, tx } from "./db";
@@ -5,7 +6,7 @@ import { audit } from "./audit";
 import { ownerAccess } from "./documents";
 import { matterFacts } from "./guards";
 import { canSeeMatter, type Actor } from "./permissions";
-import { putFile, deleteFile, uploadProblem, cleanName, mimeFor } from "./storage";
+import { uploadProblem, cleanName, mimeFor } from "./storage";
 import { isUuid } from "./format";
 import { DOC_CATEGORIES } from "./vocab";
 
@@ -46,7 +47,7 @@ export async function resolveDestination(u: Actor, value: string | null | undefi
   return { kind: "matter", matterId: m.id };
 }
 
-export interface SavedFile { id: string; title: string; file_name: string; size: number; sha256: string; where: string }
+export interface SavedFile { id: string; title: string; file_name: string; size: number; sha256: string; where: string; duplicate?: { match: "file" | "content"; of_title: string | null; of_where: string | null } }
 
 export async function saveIncoming(
   u: Actor,
@@ -54,7 +55,10 @@ export async function saveIncoming(
   opts: { destination: Destination; source: Source; title?: string | null; category?: string | null; ip?: string | null },
 ): Promise<SavedFile | { error: string; file_name: string }> {
   const problem = uploadProblem(file);
-  const name = cleanName(file?.name || "file");
+  // "Folder/Sub folder/file.pdf" from a folder or .zip import: keep the folder for search
+  const parts = String(file?.name || "file").split(/[\\/]/).map((p) => p.trim()).filter(Boolean);
+  const name = cleanName(parts.pop() || "file");
+  const folder = parts.length ? parts.map((p) => p.replace(/[\r\n<>"|?*:]/g, "_").slice(0, 80)).join(" / ").slice(-300) : null;
   if (problem) return { error: problem, file_name: name };
   const ownerType = opts.destination.kind;
   const ownerId = opts.destination.kind === "matter" ? opts.destination.matterId : u.id;
@@ -64,14 +68,14 @@ export async function saveIncoming(
   const title = (opts.title || "").trim().slice(0, 200) || name.replace(/\.[a-z0-9]+$/i, "");
   const category = opts.category && Object.prototype.hasOwnProperty.call(DOC_CATEGORIES, opts.category) ? opts.category : "other";
   const bytes = Buffer.from(await file.arrayBuffer());
-  const stored = await putFile(bytes);
+  const stored = await storeDeduped(bytes);
   const id = crypto.randomUUID();
   try {
     await tx(async (t) => {
       await t.query(
-        `INSERT INTO documents (id, owner_type, owner_id, matter_id, series_id, version, title, category, file_name, mime_type, size_bytes, sha256, storage_key, uploaded_by, source)
-         VALUES ($1,$2,$3,$4,$1,1,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-        [id, ownerType, ownerId, access.matterId, title, category, name, mimeFor(name), bytes.length, stored.sha256, stored.key, u.id, opts.source],
+        `INSERT INTO documents (id, owner_type, owner_id, matter_id, series_id, version, title, category, file_name, mime_type, size_bytes, sha256, storage_key, uploaded_by, source, folder)
+         VALUES ($1,$2,$3,$4,$1,1,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+        [id, ownerType, ownerId, access.matterId, title, category, name, mimeFor(name), bytes.length, stored.sha256, stored.key, u.id, opts.source, folder],
       );
       if (access.matterId) {
         await t.query("INSERT INTO matter_notes (id, matter_id, kind, body, created_by) VALUES ($1,$2,'system',$3,$4)",
@@ -80,9 +84,11 @@ export async function saveIncoming(
       await audit({ userId: u.id, actor: u.email, action: "document.uploaded", entityType: "document", entityId: id, matterId: access.matterId, detail: { title, to: ownerType, source: opts.source, sha256: stored.sha256, size: bytes.length }, ip: opts.ip }, t);
     });
   } catch (err) {
-    await deleteFile(stored.key).catch(() => {});
+    await releaseStored(stored);
     throw err;
   }
   indexSoon();
-  return { id, title, file_name: name, size: bytes.length, sha256: stored.sha256, where: ownerType === "inbox" ? "inbox" : "matter" };
+  const dup = await checkFileDuplicate(id);
+  const of = dup ? await describeOriginal(u, dup.ofId) : null;
+  return { id, title, file_name: name, size: bytes.length, sha256: stored.sha256, where: ownerType === "inbox" ? "inbox" : "matter", ...(dup ? { duplicate: { match: dup.match, of_title: of!.title, of_where: of!.where } } : {}) };
 }

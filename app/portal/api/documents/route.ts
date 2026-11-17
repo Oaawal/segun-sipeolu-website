@@ -1,10 +1,11 @@
+import { checkFileDuplicate, releaseStored, storeDeduped } from "@/lib/portal/dedupe";
 import { indexSoon } from "@/lib/portal/fulltext";
 import { NextResponse, type NextRequest } from "next/server";
 import { currentUser } from "@/lib/portal/auth";
 import { tx, one } from "@/lib/portal/db";
 import { audit } from "@/lib/portal/audit";
 import { ownerAccess } from "@/lib/portal/documents";
-import { putFile, deleteFile, uploadProblem, cleanName, mimeFor } from "@/lib/portal/storage";
+import { uploadProblem, cleanName, mimeFor } from "@/lib/portal/storage";
 import { isUuid } from "@/lib/portal/format";
 import { readUploads } from "@/lib/portal/uploads";
 import { DOC_CATEGORIES } from "@/lib/portal/vocab";
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
   const isVersion = !!prev?.version;
   const title = String(fd.get("title") || "").trim().slice(0, 200) || prev?.title || name;
   const category = Object.prototype.hasOwnProperty.call(DOC_CATEGORIES, String(fd.get("category"))) ? String(fd.get("category")) : prev?.category || "other";
-  const stored = await putFile(Buffer.from(await f.arrayBuffer()));
+  const stored = await storeDeduped(Buffer.from(await f.arrayBuffer()));
   const id = crypto.randomUUID();
   try {
     await tx(async (t) => {
@@ -55,9 +56,10 @@ export async function POST(req: NextRequest) {
       await audit({ userId: u.id, actor: u.email, action: isVersion ? "document.new_version" : "document.uploaded", entityType: "document", entityId: id, matterId: access.matterId, detail: { title, sha256: stored.sha256, size: f.size } }, t);
     });
   } catch (err) {
-    await deleteFile(stored.key).catch(() => {});
+    await releaseStored(stored);
     throw err;
   }
   indexSoon();
-  return back(req, access.back, "uploaded");
+  const dup = await checkFileDuplicate(id);
+  return back(req, access.back, dup ? "uploaded_duplicate" : "uploaded");
 }

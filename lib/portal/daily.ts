@@ -4,6 +4,7 @@ import { audit } from "./audit";
 import { runReminders, portalUrl } from "./reminders";
 import { saveBackup } from "./backup";
 import { indexPending } from "./fulltext";
+import { scanAllForDuplicates } from "./dedupe";
 import { notify, emailLayout } from "./notify";
 import { naira } from "./money";
 import { today } from "./format";
@@ -31,6 +32,7 @@ export async function runDaily() {
   } catch (e) { out.backup = `failed: ${(e as Error).message}`; }
 
   try { out.documents_read = await indexPending(40, 90_000); } catch (e) { out.documents_read = `failed: ${(e as Error).message}`; }
+  try { out.duplicates = await scanAllForDuplicates(); } catch (e) { out.duplicates = `failed: ${(e as Error).message}`; }
 
   if (new Date(`${day}T12:00:00Z`).getUTCDay() === 1) {
     try {

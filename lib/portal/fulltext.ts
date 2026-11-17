@@ -4,6 +4,7 @@ import { unzipSync, strFromU8 } from "fflate";
 import Anthropic from "@anthropic-ai/sdk";
 import { q } from "./db";
 import { getFile, ext } from "./storage";
+import { checkContentDuplicate } from "./dedupe";
 
 /**
  * Reads the words inside stored documents so search finds what a document
@@ -97,6 +98,16 @@ export async function indexPending(limit = 10, budgetMs = 50_000): Promise<numbe
   for (const d of rows) {
     if (Date.now() - started > budgetMs) break;
     try {
+      // The same file was read before (a duplicate): copy its words instead of reading it again
+      const twin = await q<{ status: string; method: string | null; content: string | null }>(
+        "SELECT t.status, t.method, t.content FROM document_text t JOIN documents o ON o.id = t.document_id WHERE o.sha256 = $1 AND o.id <> $2 AND t.status IN ('ok','empty','unsupported') LIMIT 1", [d.sha256, d.id]);
+      if (twin.length) {
+        await q(`INSERT INTO document_text (document_id, status, method, content, tsv) VALUES ($1,$2,$3,$4, to_tsvector('english', COALESCE($4, '')))
+                 ON CONFLICT (document_id) DO NOTHING`, [d.id, twin[0].status, twin[0].method, twin[0].content]);
+        if (twin[0].content) await checkContentDuplicate(d.id, twin[0].content);
+        n++;
+        continue;
+      }
       const bytes = await getFile(d.storage_key, d.sha256);
       const r = await extractText(bytes, d.file_name);
       if (!r) {
@@ -107,6 +118,7 @@ export async function indexPending(limit = 10, budgetMs = 50_000): Promise<numbe
           `INSERT INTO document_text (document_id, status, method, content, tsv) VALUES ($1,$2,$3,$4, to_tsvector('english', $4))
            ON CONFLICT (document_id) DO UPDATE SET status = $2, method = $3, content = $4, tsv = to_tsvector('english', $4), error = NULL, indexed_at = now()`,
           [d.id, text.trim() ? "ok" : "empty", r.method, text]);
+        if (text.trim()) await checkContentDuplicate(d.id, text);
       }
     } catch (err) {
       await q("INSERT INTO document_text (document_id, status, error) VALUES ($1,'failed',$2) ON CONFLICT (document_id) DO UPDATE SET status = 'failed', error = $2, indexed_at = now()", [d.id, String((err as Error).message).slice(0, 300)]);

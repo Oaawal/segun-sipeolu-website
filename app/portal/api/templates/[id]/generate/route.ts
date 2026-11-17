@@ -1,3 +1,4 @@
+import { checkFileDuplicate, releaseStored, storeDeduped } from "@/lib/portal/dedupe";
 import { indexSoon } from "@/lib/portal/fulltext";
 import { NextResponse, type NextRequest } from "next/server";
 import { currentUser } from "@/lib/portal/auth";
@@ -5,7 +6,7 @@ import { can, canSeeMatter } from "@/lib/portal/permissions";
 import { one, tx } from "@/lib/portal/db";
 import { audit } from "@/lib/portal/audit";
 import { matterFacts } from "@/lib/portal/guards";
-import { getFile, putFile, deleteFile } from "@/lib/portal/storage";
+import { getFile } from "@/lib/portal/storage";
 import { contextValues, fillDocx } from "@/lib/portal/templates";
 import { docxResponseHeaders } from "@/lib/portal/word-export";
 import { isUuid, today } from "@/lib/portal/format";
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const filled = fillDocx(new Uint8Array(await getFile(t.storage_key, t.sha256)), values);
   const title = `${t.title} · ${m.number}`;
   const fileName = `${t.title} ${m.number.replace(/\//g, "-")} ${today()}.docx`;
-  const stored = await putFile(Buffer.from(filled));
+  const stored = await storeDeduped(Buffer.from(filled));
   const docId = crypto.randomUUID();
   try {
     await tx(async (x) => {
@@ -52,9 +53,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await audit({ userId: u.id, actor: u.email, action: "template.generated", entityType: "template", entityId: t.id, matterId: m.id, detail: { document: docId } }, x);
     });
   } catch (err) {
-    await deleteFile(stored.key).catch(() => {});
+    await releaseStored(stored);
     throw err;
   }
   indexSoon();
+  await checkFileDuplicate(docId);
   return new NextResponse(new Uint8Array(filled), { headers: docxResponseHeaders(fileName) });
 }
