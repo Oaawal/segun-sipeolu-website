@@ -61,7 +61,7 @@ The portal sends nothing to clients at all: there is no client login, no client 
 
 - Every page and every action checks access on the server; hidden buttons are never the only protection. The full role table is on *People & access*.
 - **Ethical walls**: a walled-off matter is visible only to its team, partners included.
-- Sign-in: passwords of at least 12 characters (scrypt hashes); **two-factor sign-in with an authenticator app is optional for now, with a reminder on the Today page** (`PORTAL_REQUIRE_2FA=partners` requires it for partners and the Managing Partner, `all` for everyone; recommended once everyone is settled in); lockout after 5 wrong attempts; sign-out after 30 minutes idle and 12 hours at most.
+- Sign-in: passwords of at least 12 characters (scrypt hashes); **two-factor sign-in with an authenticator app is optional for now; until someone sets it up, a 6-digit code is emailed to them at every sign-in** (when Brevo email is set up; `PORTAL_EMAIL_CODE=off` stops it) (`PORTAL_REQUIRE_2FA=partners` requires it for partners and the Managing Partner, `all` for everyone; recommended once everyone is settled in); lockout after 5 wrong attempts; sign-out after 30 minutes idle and 12 hours at most.
 - Files are encrypted at rest (AES-256-GCM) and served only through an authorised route.
 - No SMS is sent, and emails never contain client names or case details.
 

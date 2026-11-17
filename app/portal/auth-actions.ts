@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { one, q, tx } from "@/lib/portal/db";
 import { audit } from "@/lib/portal/audit";
 import { currentUser, endSession, hasUsers, mfaRequired, requestMeta, startSession, requireUser } from "@/lib/portal/auth";
+import { checkLoginCode, emailCodesOn, sendLoginCode } from "@/lib/portal/login-code";
 import { decrypt, hashPassword, passwordProblem, sha256, verifyPassword, verifyTotp } from "@/lib/portal/crypto";
 import type { Role } from "@/lib/portal/permissions";
 
@@ -148,8 +149,15 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
   }
   await q("INSERT INTO login_attempts (email, ip, success) VALUES ($1,$2,true)", [email, ip]);
   await q("UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = $1", [u.id]);
-  // Two-factor: if enrolled, the session waits for the code; if required but not set up, enrolment comes next
-  const passed = !u.totp_enabled && !mfaRequired(u.role);
+  // Second step: authenticator code if set up; enrolment if required; otherwise an emailed code (when email is set up)
+  const emailCode = !u.totp_enabled && !mfaRequired(u.role) && emailCodesOn();
+  const passed = !u.totp_enabled && !mfaRequired(u.role) && !emailCode;
+  if (emailCode) {
+    const named = await one<{ full_name: string }>("SELECT full_name FROM users WHERE id = $1", [u.id]);
+    if ((await sendLoginCode({ id: u.id, email: u.email, full_name: named?.full_name || u.email })) === "failed") return { error: "Your sign-in code could not be emailed just now. Try again in a minute; if it keeps failing, tell the Managing Partner." };
+    await startSession(u.id, false);
+    redirect("/portal/login/verify");
+  }
   await startSession(u.id, passed);
   if (passed) {
     await q("UPDATE users SET last_login_at = now() WHERE id = $1", [u.id]);
@@ -164,23 +172,36 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
 export async function verifyCodeAction(_: FormState, fd: FormData): Promise<FormState> {
   const s = await currentUser();
   if (!s) redirect("/portal/login");
-  const u = await one<{ totp_secret: string | null; failed_logins: number }>("SELECT totp_secret, failed_logins FROM users WHERE id = $1", [s.id]);
-  if (!u?.totp_secret) redirect("/portal/security/two-factor?required=1");
-  if (!verifyTotp(decrypt(u.totp_secret), String(fd.get("code") || ""))) {
-    const fails = u.failed_logins + 1;
+  const u = await one<{ totp_secret: string | null; totp_enabled: boolean; failed_logins: number }>("SELECT totp_secret, totp_enabled, failed_logins FROM users WHERE id = $1", [s.id]);
+  const byEmail = !u?.totp_enabled && !mfaRequired(s.role);
+  if (!byEmail && !u?.totp_secret) redirect("/portal/security/two-factor?required=1");
+  const good = byEmail ? await checkLoginCode(s.id, String(fd.get("code") || "")) : verifyTotp(decrypt(u!.totp_secret!), String(fd.get("code") || ""));
+  if (!good) {
+    const fails = u!.failed_logins + 1;
     await q(`UPDATE users SET failed_logins = $2, locked_until = CASE WHEN $2 >= ${MAX_FAILS} THEN now() + interval '${LOCK_MINUTES} minutes' ELSE locked_until END WHERE id = $1`, [s.id, fails]);
     await audit({ userId: s.id, actor: s.email, action: "auth.code_failed", entityType: "user", entityId: s.id });
     if (fails >= MAX_FAILS) {
       await endSession();
       redirect("/portal/login?locked=1");
     }
-    return { error: "That code is not right. Use the 6-digit code showing in your authenticator app now." };
+    return { error: byEmail ? "That code is not right, or it has expired. Check the latest email, or send a new code." : "That code is not right. Use the 6-digit code showing in your authenticator app now." };
   }
   await q("UPDATE sessions SET mfa_passed = TRUE WHERE token_hash = $1", [s.token_hash]);
   await q("UPDATE users SET failed_logins = 0, last_login_at = now() WHERE id = $1", [s.id]);
-  await audit({ userId: s.id, actor: s.email, action: "auth.login", entityType: "user", entityId: s.id, detail: { twoFactor: true } });
+  await audit({ userId: s.id, actor: s.email, action: "auth.login", entityType: "user", entityId: s.id, detail: { twoFactor: byEmail ? "email" : "app" } });
   await checkNewDevice(s);
   redirect("/portal");
+}
+
+/** Email another sign-in code (at most one a minute). */
+export async function resendLoginCodeAction(): Promise<FormState> {
+  const s = await currentUser();
+  if (!s) redirect("/portal/login");
+  if (s.mfa_passed || s.totp_enabled) redirect("/portal");
+  const r = await sendLoginCode(s);
+  if (r === "wait") return { error: "A code was sent less than a minute ago. Check your inbox (and spam), or wait a moment." };
+  if (r === "failed") return { error: "The code could not be emailed just now. Try again in a minute." };
+  return { ok: "A new code is on its way to your email." };
 }
 
 export async function logoutAction() {

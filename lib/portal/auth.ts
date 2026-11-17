@@ -101,7 +101,7 @@ async function sessionUser(touch: boolean): Promise<SessionUser | null> {
 export async function requireUser(): Promise<SessionUser> {
   const u = await currentUser();
   if (!u) redirect("/portal/login");
-  if (!u.mfa_passed) redirect(u.totp_enabled ? "/portal/login/verify" : "/portal/security/two-factor?required=1");
+  if (!u.mfa_passed) redirect(u.totp_enabled || !mfaRequired(u.role) ? "/portal/login/verify" : "/portal/security/two-factor?required=1");
   return u;
 }
 

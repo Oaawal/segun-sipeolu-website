@@ -20,7 +20,7 @@ export default async function System({ searchParams }: { searchParams: Promise<{
     ["Secret key (APP_SECRET)", !!process.env.APP_SECRET && process.env.APP_SECRET.length >= 32, "Encrypts files and two-factor secrets. Keep a copy somewhere safe: without it, stored files cannot be read."],
     ["Database", true, dbEngineName()],
     ["File storage", directUploads() || !process.env.VERCEL, s3Enabled() ? `S3-compatible bucket "${process.env.STORAGE_S3_BUCKET}" (files encrypted before upload; large uploads go straight to the bucket)` : blobEnabled() ? "Vercel Blob, private store (files encrypted before upload; large uploads go straight to the store)" : "This server's disk (PORTAL_DATA_DIR). Back it up nightly."],
-    ["Email reminders (Brevo)", emailEnabled(), "BREVO_API_KEY and NOTIFY_FROM_EMAIL"],
+    ["Email (Brevo)", emailEnabled(), "BREVO_API_KEY and NOTIFY_FROM_EMAIL. Sends sign-in codes to people without an authenticator app (PORTAL_EMAIL_CODE=off stops them), and plain reminders"],
     ["Daily reminders schedule (CRON_SECRET)", !!process.env.CRON_SECRET, "Call /portal/api/cron/reminders every morning"],
     ["Meeting transcription (Deepgram)", transcriptionEnabled(), "DEEPGRAM_API_KEY"],
     ["AI minutes, assistant and text recognition (Claude)", minutesEnabled(), "ANTHROPIC_API_KEY. Also reads scanned PDFs and photos for search (turn that off with PORTAL_OCR=off)"],

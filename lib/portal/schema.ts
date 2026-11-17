@@ -995,4 +995,17 @@ CREATE TABLE chat_reads (
 );
 `,
   },
+  {
+    id: "0010_login_codes",
+    sql: /* sql */ `
+-- Emailed sign-in codes for people without an authenticator app (one at a time)
+CREATE TABLE login_codes (
+  user_id     UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  code_hash   TEXT NOT NULL,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  attempts    INT NOT NULL DEFAULT 0,
+  sent_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+`,
+  },
 ];

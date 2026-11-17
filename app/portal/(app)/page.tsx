@@ -3,6 +3,7 @@ import { Briefcase, CalendarDays, Gavel, Inbox, ListChecks, Mic, Plus, Sparkles,
 import { one } from "@/lib/portal/db";
 import { assistantEnabled } from "@/lib/portal/assistant";
 import { requireUser } from "@/lib/portal/auth";
+import { emailCodesOn } from "@/lib/portal/login-code";
 import { dashboard } from "@/lib/portal/data";
 import { can } from "@/lib/portal/permissions";
 import { daysUntil, dueLabel, fmtLongDay, fmtDay, today } from "@/lib/portal/format";
@@ -39,7 +40,7 @@ export default async function Today({ searchParams }: { searchParams: Promise<{ 
         }
       />
       <Flash msg={sp.msg} />
-      {!u.totp_enabled && <div className="mb-5"><Note tone="lock">Two-factor sign-in is not on for your account yet. It is optional for now, but recommended: <Link href="/portal/security/two-factor" className="font-semibold underline">set up an authenticator app</Link> when you have a minute.</Note></div>}
+      {!u.totp_enabled && <div className="mb-5"><Note tone="lock">Two-factor sign-in is not on for your account yet.{emailCodesOn() ? " Until it is, a code is emailed to you each time you sign in." : ""} When you have a minute, <Link href="/portal/security/two-factor" className="font-semibold underline">set up an authenticator app</Link>.</Note></div>}
       {sp.denied && <div className="mb-5"><Note tone="danger">Your role does not allow that page. If you need access, ask the Managing Partner.</Note></div>}
       {(nudge.timer || (can(u, "intake.view") && Number(nudge.enquiries) > 0)) && (
         <div className="mb-6 flex flex-wrap gap-2">
