@@ -14,7 +14,10 @@ export async function savePreferences(fd: FormData) {
   const u = await requireUser();
   const phone = str(fd, "phone", 40);
   if (phone && !normalisePhone(phone)) redirect("/portal/account?msg=invalid");
-  await q("UPDATE users SET phone = $2, notify_email = $3 WHERE id = $1", [u.id, phone, fd.get("notify_email") === "1"]);
+  const name = str(fd, "full_name", 120);
+  if (!name) redirect("/portal/account?msg=invalid");
+  // Your own name and job title; your role is set by the Managing Partner
+  await q("UPDATE users SET full_name = $2, title = $3, phone = $4, notify_email = $5 WHERE id = $1", [u.id, name, str(fd, "title", 80), phone, fd.get("notify_email") === "1"]);
   await audit({ userId: u.id, actor: u.email, action: "account.preferences", entityType: "user", entityId: u.id });
   redirect("/portal/account?msg=saved");
 }

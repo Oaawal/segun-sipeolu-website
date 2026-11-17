@@ -34,11 +34,13 @@ export default async function Account({ searchParams }: { searchParams: Promise<
     <>
       <PageHeader title="Your account" sub={`${u.full_name} · ${ROLES[u.role].label} · ${u.email}`} />
       <Flash msg={sp.msg} />
-      {sp.test && <div className="mb-5"><Note tone="ok">A test reminder was sent to the channels you have switched on. Check your email{me?.phone ? " and phone" : ""}.</Note></div>}
+      {sp.test && <div className="mb-5"><Note tone="ok">A test reminder was sent. Check your email.</Note></div>}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card title={<span className="flex items-center gap-2"><MessageSquare className="h-4 w-4" />Reminders</span>}>
+        <Card title={<span className="flex items-center gap-2"><MessageSquare className="h-4 w-4" />Your details</span>}>
           <form action={savePreferences} className="space-y-4">
-            <Field label="Mobile number" name="phone" defaultValue={me?.phone || ""} inputMode="tel" placeholder="0803 000 0000" />
+            <Field label="Full name" name="full_name" defaultValue={u.full_name} required />
+            <Field label="Title" name="title" defaultValue={u.title || ""} placeholder="e.g. Managing Partner" />
+            <Field label="Mobile number" name="phone" defaultValue={me?.phone || ""} inputMode="tel" />
             <Check name="notify_email" defaultChecked={me?.notify_email} label="Email me a morning summary: court, tasks and responses due" />
             <div className="flex flex-wrap gap-2"><button className={btn.primary}>Save</button></div>
           </form>
