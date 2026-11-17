@@ -1008,4 +1008,12 @@ CREATE TABLE login_codes (
 );
 `,
   },
+  {
+    id: "0011_personal_rights",
+    sql: /* sql */ `
+-- Rights the Managing Partner has added to or taken from one person, on top of their role (JSON lists)
+ALTER TABLE users ADD COLUMN perm_grants TEXT;
+ALTER TABLE users ADD COLUMN perm_denies TEXT;
+`,
+  },
 ];

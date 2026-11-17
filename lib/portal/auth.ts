@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { one, q } from "./db";
 import { randomToken, sha256 } from "./crypto";
-import { can, type Actor, type Designation, type Permission, type Role } from "./permissions";
+import { can, parseRights, type Actor, type Designation, type Permission, type Role } from "./permissions";
 
 /**
  * Sessions for the staff portal.
@@ -21,6 +21,8 @@ const IDLE_MIN = Number(process.env.PORTAL_IDLE_MINUTES || 30);
 const MAX_HOURS = 12;
 
 export interface SessionUser extends Actor {
+  grants: Permission[];
+  denies: Permission[];
   title: string | null;
   designation: Designation | null;
   totp_enabled: boolean;
@@ -82,8 +84,8 @@ async function sessionUser(touch: boolean): Promise<SessionUser | null> {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   const hash = sha256(token);
-  const row = await one<SessionUser & { last_seen_at: Date }>(
-    `SELECT u.id, u.email, u.full_name, u.role, u.title, u.designation, u.totp_enabled, s.mfa_passed, s.token_hash, s.last_seen_at
+  const row = await one<Omit<SessionUser, "grants" | "denies"> & { last_seen_at: Date; perm_grants: string | null; perm_denies: string | null }>(
+    `SELECT u.id, u.email, u.full_name, u.role, u.title, u.designation, u.totp_enabled, u.perm_grants, u.perm_denies, s.mfa_passed, s.token_hash, s.last_seen_at
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = $1 AND s.expires_at > now() AND u.active
        AND s.last_seen_at > now() - ($2::int * interval '1 minute')`,
@@ -94,7 +96,9 @@ async function sessionUser(touch: boolean): Promise<SessionUser | null> {
   if (touch && Date.now() - new Date(row.last_seen_at).getTime() > 60_000) {
     await q("UPDATE sessions SET last_seen_at = now() WHERE token_hash = $1", [hash]);
   }
-  return row;
+  const { perm_grants, perm_denies, last_seen_at: _seen, ...rest } = row;
+  void _seen;
+  return { ...rest, grants: parseRights(perm_grants), denies: parseRights(perm_denies) };
 }
 
 /** For every portal page: signed in, two-factor done where required. */

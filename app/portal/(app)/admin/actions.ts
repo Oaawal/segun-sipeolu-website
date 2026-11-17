@@ -6,7 +6,7 @@ import { one, q, tx } from "@/lib/portal/db";
 import { audit } from "@/lib/portal/audit";
 import { requirePermission } from "@/lib/portal/auth";
 import { randomToken, sha256 } from "@/lib/portal/crypto";
-import { DESIGNATIONS, ROLES, type Designation } from "@/lib/portal/permissions";
+import { DESIGNATIONS, parseRights, rightsFromTicks, ROLES, type Designation } from "@/lib/portal/permissions";
 import { isUuid, oneOf, str } from "@/lib/portal/format";
 import { runReminders } from "@/lib/portal/reminders";
 
@@ -57,7 +57,7 @@ export async function updateUser(fd: FormData) {
   const id = String(fd.get("id") || "");
   if (!isUuid(id)) redirect("/portal/admin/people");
   if (id === u.id) redirect("/portal/admin/people?msg=self");
-  const before = await one<{ role: string; active: boolean }>("SELECT role, active FROM users WHERE id = $1", [id]);
+  const before = await one<{ role: string; active: boolean; perm_grants: string | null; perm_denies: string | null }>("SELECT role, active, perm_grants, perm_denies FROM users WHERE id = $1", [id]);
   if (!before) redirect("/portal/admin/people");
   const role = oneOf(fd, "role", ROLES, before.role as keyof typeof ROLES);
   const active = fd.get("active") !== "0";
@@ -66,8 +66,15 @@ export async function updateUser(fd: FormData) {
     const admins = await one<{ n: number }>("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND active AND id != $1", [id]);
     if (!admins?.n) redirect("/portal/admin/people?msg=invalid");
   }
+  // Personal rights: kept as differences from the role; a new role starts from its defaults
+  const rights = role === "admin" || role !== before.role || fd.get("rights") !== "1"
+    ? { grants: [], denies: [] }
+    : rightsFromTicks(role, new Set(fd.getAll("perm").map(String)));
+  const rightsChanged = JSON.stringify(rights) !== JSON.stringify({ grants: parseRights(before.perm_grants), denies: parseRights(before.perm_denies) });
   await tx(async (t) => {
-    await t.query("UPDATE users SET full_name = $2, title = $3, phone = $4, role = $5, active = $6, designation = $7 WHERE id = $1", [id, str(fd, "full_name", 120) || "Unnamed", str(fd, "title", 80), str(fd, "phone", 40), role, active, designationOf(fd, role)]);
+    await t.query("UPDATE users SET full_name = $2, title = $3, phone = $4, role = $5, active = $6, designation = $7, perm_grants = $8, perm_denies = $9 WHERE id = $1",
+      [id, str(fd, "full_name", 120) || "Unnamed", str(fd, "title", 80), str(fd, "phone", 40), role, active, designationOf(fd, role), rights.grants.length ? JSON.stringify(rights.grants) : null, rights.denies.length ? JSON.stringify(rights.denies) : null]);
+    if (rightsChanged) await audit({ userId: u.id, actor: u.email, action: "user.rights_changed", entityType: "user", entityId: id, detail: { added: rights.grants, removed: rights.denies } }, t);
     if (!active || role !== before.role) await t.query("DELETE FROM sessions WHERE user_id = $1", [id]);
     if (!active) await t.query("UPDATE api_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL", [id]);
     await audit({ userId: u.id, actor: u.email, action: active ? "user.updated" : "user.deactivated", entityType: "user", entityId: id, detail: { role, from: before.role, active } }, t);

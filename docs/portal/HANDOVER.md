@@ -126,7 +126,8 @@ Vercel has no permanent disk and refuses requests over 4.5 MB, so on Vercel the 
 1. Deploy with the settings above, then open `/portal`. It goes to **Set up**.
 2. Enter `PORTAL_SETUP_TOKEN`, then create the Managing Partner's account (set up two-factor under *Account* when ready).
 3. *Invitation codes*: make a code for each colleague and send them the link shown (it opens the account form with the code filled in; they are signed in as soon as they finish) (or let them create an account and approve it on *People & access*). They create their account at `/portal/signup`.
-4. On *People & access*, set designations: Senior Counsel (lawyers) and Head of Litigation (litigation team) can then make codes too.
+4. On *People & access*, open a person's *Edit* to tick or untick their individual rights (e.g. give one lawyer billing, or take conflict checks from someone). Ticked boxes are what they can do; a dot marks their role's default; changing their role resets them to that role's defaults; every change is in the audit trail. Managing people, the audit trail and backups stay with the Managing Partner.
+5. On *People & access*, set designations: Senior Counsel (lawyers) and Head of Litigation (litigation team) can then make codes too.
 
 ### Reminders and the morning job
 Ask any scheduler to call this every morning at 06:00 UTC (7am Lagos). Besides the reminders it makes the nightly backup, reads new documents for search, and on Mondays emails partners their overdue invoices (on Vercel, `vercel.json` already schedules it):

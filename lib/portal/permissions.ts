@@ -2,7 +2,10 @@
  * Who may do what: least privilege, decided in one place.
  *
  * Two layers:
- *  1. Role permissions (below): what kind of work a role does.
+ *  1. Role permissions (below): what kind of work a role does. The Managing
+ *     Partner can tick extra rights for one person, or untick some of their
+ *     role's rights (People & access). Running the portal itself (people,
+ *     audit trail, system) stays with the Managing Partner role.
  *  2. Matter access (canSeeMatter): which files a person may open. Lawyers and
  *     the litigation team see only matters they are on. Partners see every
  *     matter except confidential ones they are not on (an ethical wall). Front
@@ -107,8 +110,38 @@ export interface Actor {
   role: Role;
 }
 
-export function can(user: Pick<Actor, "role">, perm: Permission): boolean {
-  return (PERMISSIONS[perm] as readonly Role[]).includes(user.role);
+/** Rights that only the Managing Partner role has; they cannot be given to anyone else. */
+export const LOCKED_PERMISSIONS: readonly Permission[] = ["users.manage", "audit.view", "system.manage"];
+
+/** Rights added to or taken from one person, on top of their role. */
+export interface PersonalRights { grants?: readonly string[] | null; denies?: readonly string[] | null }
+
+export function roleCan(role: Role, perm: Permission): boolean {
+  return (PERMISSIONS[perm] as readonly Role[]).includes(role);
+}
+
+export function can(user: Pick<Actor, "role"> & PersonalRights, perm: Permission): boolean {
+  // The Managing Partner always has every right of the role (nobody can lock the firm out)
+  if (user.role === "admin") return roleCan("admin", perm);
+  if (user.denies?.includes(perm)) return false;
+  if (user.grants?.includes(perm) && !LOCKED_PERMISSIONS.includes(perm)) return true;
+  return roleCan(user.role, perm);
+}
+
+/** Store a person's rights as differences from their role: ticked boxes in, unticked out. */
+export function rightsFromTicks(role: Role, ticked: Set<string>): { grants: Permission[]; denies: Permission[] } {
+  const all = (Object.keys(PERMISSIONS) as Permission[]).filter((p) => !LOCKED_PERMISSIONS.includes(p));
+  return {
+    grants: all.filter((p) => ticked.has(p) && !roleCan(role, p)),
+    denies: all.filter((p) => !ticked.has(p) && roleCan(role, p)),
+  };
+}
+
+export function parseRights(json: string | null | undefined): Permission[] {
+  try {
+    const v = JSON.parse(json || "[]");
+    return Array.isArray(v) ? v.filter((p): p is Permission => typeof p === "string" && p in PERMISSIONS) : [];
+  } catch { return []; }
 }
 
 export interface MatterAccessFacts {
@@ -117,20 +150,22 @@ export interface MatterAccessFacts {
 }
 
 /** May this person open the matter's file (documents, notes, meetings, parties)? */
-export function canSeeMatter(user: Pick<Actor, "role">, m: MatterAccessFacts): boolean {
-  if (user.role === "front_desk") return false;
-  if (m.isMember) return true;
+export function canSeeMatter(user: Pick<Actor, "role"> & PersonalRights, m: MatterAccessFacts): boolean {
   if (user.role === "admin") return true;
-  if (user.role === "partner") return !m.confidential;
-  return false;
+  const all = can(user, "matters.view_all");
+  if (user.role === "front_desk" && !all) return false;
+  if (m.isMember) return true;
+  // "See all matters": everything except walled-off matters they are not on
+  return all && !m.confidential;
 }
 
 /** SQL condition (matters aliased as m) for the matters a user may open. $1 must be the user's id. */
-export function matterAccessSql(user: Pick<Actor, "role">): string {
+export function matterAccessSql(user: Pick<Actor, "role"> & PersonalRights): string {
   const member = "EXISTS (SELECT 1 FROM matter_members mm WHERE mm.matter_id = m.id AND mm.user_id = $1)";
-  if (user.role === "front_desk") return "FALSE";
   if (user.role === "admin") return "($1::uuid IS NOT NULL)";
-  if (user.role === "partner") return `(NOT m.confidential OR ${member})`;
+  const all = can(user, "matters.view_all");
+  if (user.role === "front_desk" && !all) return "FALSE";
+  if (all) return `(NOT m.confidential OR ${member})`;
   return member;
 }
 

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { KeyRound } from "lucide-react";
 import { requirePermission } from "@/lib/portal/auth";
 import { q } from "@/lib/portal/db";
-import { DESIGNATIONS, ROLES, PERMISSIONS, type Designation, type Role } from "@/lib/portal/permissions";
+import { can, DESIGNATIONS, LOCKED_PERMISSIONS, parseRights, PERMISSIONS, roleCan, ROLES, type Designation, type Permission, type Role } from "@/lib/portal/permissions";
 import { ago } from "@/lib/portal/format";
 import { Avatar, Badge, Card, Field, Flash, Note, PageHeader, Select, btn } from "@/components/portal/ui";
 import { fmtDateTime } from "@/lib/portal/format";
@@ -31,8 +31,8 @@ const PERM_LABELS: Record<string, string> = {
 export default async function People({ searchParams }: { searchParams: Promise<{ msg?: string; link?: string }> }) {
   const me = await requirePermission("users.manage");
   const sp = await searchParams;
-  const all = await q<{ id: string; email: string; full_name: string; role: Role; title: string | null; phone: string | null; active: boolean; totp_enabled: boolean; last_login_at: string | null; has_password: boolean; locked_until: string | null; designation: Designation | null; account_status: string; requested_role: Role | null; signup_note: string | null; created_at: string }>(
-    "SELECT id, email, full_name, role, title, phone, active, totp_enabled, last_login_at, password_hash IS NOT NULL AS has_password, locked_until, designation, account_status, requested_role, signup_note, created_at FROM users WHERE account_status <> 'rejected' ORDER BY active DESC, full_name",
+  const all = await q<{ id: string; email: string; full_name: string; role: Role; title: string | null; phone: string | null; active: boolean; totp_enabled: boolean; last_login_at: string | null; has_password: boolean; locked_until: string | null; designation: Designation | null; account_status: string; requested_role: Role | null; signup_note: string | null; created_at: string; perm_grants: string | null; perm_denies: string | null }>(
+    "SELECT id, email, full_name, role, title, phone, active, totp_enabled, last_login_at, password_hash IS NOT NULL AS has_password, locked_until, designation, account_status, requested_role, signup_note, created_at, perm_grants, perm_denies FROM users WHERE account_status <> 'rejected' ORDER BY active DESC, full_name",
   );
   const pending = all.filter((p) => p.account_status === "pending");
   const people = all.filter((p) => p.account_status === "active");
@@ -92,6 +92,7 @@ export default async function People({ searchParams }: { searchParams: Promise<{
                 <div className="flex flex-wrap justify-end gap-1.5">
                   <Badge tone={p.role === "admin" ? "maroon" : p.role === "partner" ? "gold" : "grey"}>{ROLES[p.role].label}</Badge>
                   {p.designation && <Badge tone="blue">{DESIGNATIONS[p.designation].label}</Badge>}
+                  {p.role !== "admin" && (parseRights(p.perm_grants).length + parseRights(p.perm_denies).length > 0) && <Badge tone="gold">Own rights</Badge>}
                   {!p.active ? <Badge>Deactivated</Badge> : !p.has_password ? <Badge tone="amber">Invited</Badge> : p.totp_enabled ? <Badge tone="green">2FA on</Badge> : <Badge tone="amber">No 2FA</Badge>}
                   {p.locked_until && new Date(p.locked_until) > new Date() && <Badge tone="red">Locked</Badge>}
                 </div>
@@ -107,6 +108,27 @@ export default async function People({ searchParams }: { searchParams: Promise<{
                     <Select label="Role" name="role" options={roleOpts} defaultValue={p.role} />
                     <Select label="Designation" name="designation" options={desigOpts} defaultValue={p.designation || ""} hint="Lets them issue invitation codes" />
                     <Select label="Access" name="active" options={[["1", "Can sign in"], ["0", "Deactivated"]]} defaultValue={p.active ? "1" : "0"} />
+                    {p.role === "admin" ? (
+                      <p className="text-xs text-stone-500 sm:col-span-2">The Managing Partner has every right; they cannot be taken away.</p>
+                    ) : (
+                      <fieldset className="sm:col-span-2">
+                        <legend className="mb-1.5 text-[13px] font-semibold text-stone-700">Rights</legend>
+                        <p className="mb-2 text-xs text-stone-500">Ticked boxes are what {p.full_name.split(" ")[0]} can do. Untick to take a right away, tick to give one their role does not have. <span className="text-stone-400">Role default ●</span>. If you change the role, the rights go back to that role&apos;s defaults.</p>
+                        <div className="grid grid-cols-1 gap-x-4 gap-y-1 rounded-lg border border-stone-200 p-3 sm:grid-cols-2">
+                          {(Object.keys(PERMISSIONS) as Permission[]).filter((k) => !LOCKED_PERMISSIONS.includes(k)).map((k) => {
+                            const rights = { role: p.role, grants: parseRights(p.perm_grants), denies: parseRights(p.perm_denies) };
+                            return (
+                              <label key={k} className="flex items-start gap-2 text-sm">
+                                <input type="checkbox" name="perm" value={k} defaultChecked={can(rights, k)} className="mt-0.5 h-4 w-4 accent-maroon" />
+                                <span>{PERM_LABELS[k] || k}{roleCan(p.role, k) && <span className="ml-1 text-[10px] text-stone-400">●</span>}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <p className="mt-1.5 text-xs text-stone-500">Managing people, the audit trail and backups stay with the Managing Partner.</p>
+                        <input type="hidden" name="rights" value="1" />
+                      </fieldset>
+                    )}
                     <div className="flex items-end gap-2"><button className={btn.primary}>Save</button></div>
                   </form>
                   <form action={resetUser} className="mt-2"><input type="hidden" name="id" value={p.id} /><button className={btn.small}>Reset password and 2FA (new link)</button></form>
@@ -124,7 +146,7 @@ export default async function People({ searchParams }: { searchParams: Promise<{
           <Note tone="lock">Deactivating someone signs them out everywhere and revokes their Word connection at once. Their work, notes and history stay on record.</Note>
         </div>
       </div>
-      <Card title="What each role can do" className="mt-6" pad={false}>
+      <Card title="What each role can do by default" className="mt-6" pad={false}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead><tr className="border-b border-stone-200 text-left text-xs uppercase tracking-wider text-stone-500"><th className="px-5 py-3">Permission</th>{Object.values(ROLES).map((r) => <th key={r.label} className="px-3 py-3 text-center">{r.label.split(" /")[0]}</th>)}</tr></thead>
