@@ -9,7 +9,7 @@ import { KNOWN_FIELDS } from "@/lib/portal/templates";
 import { templateVisibleSql, visibilityLabel } from "@/lib/portal/template-access";
 import { Badge, Card, Chips, Empty, Field, Flash, Note, PageHeader, Row, Select, btn, inputCls } from "@/components/portal/ui";
 import { installStarters } from "./actions";
-import { s3Enabled } from "@/lib/portal/storage";
+import { directUploads } from "@/lib/portal/storage";
 import { FileField } from "@/components/portal/FileField";
 import { VisibilityField } from "./VisibilityField";
 
@@ -68,7 +68,7 @@ export default async function Templates({ searchParams }: { searchParams: Promis
             <Card title="Add a document">
               <form action="/portal/api/templates" method="post" encType="multipart/form-data" className="space-y-3">
                 <label className="block"><span className="mb-1.5 block text-[13px] font-semibold text-stone-700">File <span className="text-maroon">*</span></span>
-                  <FileField name="file" required direct={s3Enabled()} className="block w-full rounded-lg border border-dashed border-stone-300 bg-cream/40 px-3 py-3 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-maroon file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" /></label>
+                  <FileField name="file" required direct={directUploads()} className="block w-full rounded-lg border border-dashed border-stone-300 bg-cream/40 px-3 py-3 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-maroon file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" /></label>
                 <p className="text-xs text-stone-500">Any document: Word, PDF, Excel, PowerPoint, pictures. A Word file with <code className="rounded bg-cream px-1">{"{{fields}}"}</code> becomes a fill-in template; anything else is kept as a reference document.</p>
                 <Field label="Title" name="title" placeholder="e.g. Notice of change of counsel" />
                 <Select label="Category" name="category" options={TEMPLATE_CATEGORIES} defaultValue="letter" />

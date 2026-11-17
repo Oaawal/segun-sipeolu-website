@@ -45,8 +45,9 @@ export async function setupAction(_: FormState, fd: FormData): Promise<FormState
     );
     await audit({ userId: id, actor: email, action: "system.setup", entityType: "user", entityId: id }, t);
   });
-  await startSession(id, false);
-  redirect("/portal/security/two-factor?required=1");
+  const passed = !mfaRequired("admin");
+  await startSession(id, passed);
+  redirect(passed ? "/portal" : "/portal/security/two-factor?required=1");
 }
 
 // ── Create an account ───────────────────────────────────────────

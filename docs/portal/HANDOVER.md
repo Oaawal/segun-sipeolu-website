@@ -61,7 +61,7 @@ The portal sends nothing to clients at all: there is no client login, no client 
 
 - Every page and every action checks access on the server; hidden buttons are never the only protection. The full role table is on *People & access*.
 - **Ethical walls**: a walled-off matter is visible only to its team, partners included.
-- Sign-in: passwords of at least 12 characters (scrypt hashes); **two-factor sign-in with an authenticator app is required for partners and the admin** (`PORTAL_REQUIRE_2FA=all` extends it to everyone); lockout after 5 wrong attempts; sign-out after 30 minutes idle and 12 hours at most.
+- Sign-in: passwords of at least 12 characters (scrypt hashes); **two-factor sign-in with an authenticator app is optional for now, with a reminder on the Today page** (`PORTAL_REQUIRE_2FA=partners` requires it for partners and the Managing Partner, `all` for everyone; recommended once everyone is settled in); lockout after 5 wrong attempts; sign-out after 30 minutes idle and 12 hours at most.
 - Files are encrypted at rest (AES-256-GCM) and served only through an authorised route.
 - No SMS is sent, and emails never contain client names or case details.
 
@@ -115,12 +115,17 @@ Vercel has no permanent disk and refuses requests over 4.5 MB, so on Vercel the 
 4. **Scheduled jobs.** `vercel.json` runs the morning reminders at 06:00 UTC (7am Lagos) and checks the email-to-the-portal mailbox at 06:15 UTC. Vercel's free plan runs scheduled jobs once a day; for email-to-the-portal more often, upgrade, or have a free external scheduler (e.g. cron-job.org) call `/portal/api/cron/mail-intake` with the `Authorization: Bearer <CRON_SECRET>` header every 15 minutes.
 5. **Limits on Vercel.** Uploads from the browser, Word templates, meeting recordings, document versions, register scans and email attachments go straight to R2, so their size is not limited by Vercel. Three paths still pass through Vercel and are limited to about 4.5 MB per file: sharing from a phone's Share menu, the Windows helper, and the Word add-in (Word documents are usually far smaller).
 
+**Storage on Vercel without Cloudflare:** instead of steps 2 and the `STORAGE_S3_*` settings, open the Vercel project, then *Storage*, then *Create* → *Blob* (choose **private**), and connect it to the project. Vercel adds `BLOB_READ_WRITE_TOKEN` itself. Files are still encrypted before they are stored, and large uploads go straight from the browser to the store (no CORS rule needed). If both are set, R2 is used.
+
 **Check after setting up:** sign in, open a matter, and upload a file larger than 5 MB on its Documents tab. If it fails with "storage is not set to accept uploads from this site", the R2 CORS rule is missing or has the wrong address.
+
+### Chat
+*Chat* is for staff only: one room for everyone, and private one-to-one conversations (open to those two people only, not even the Managing Partner). Messages are encrypted before they are stored, nothing is emailed, and an open chat page does not keep an idle session signed in.
 
 ### First run
 1. Deploy with the settings above, then open `/portal`. It goes to **Set up**.
-2. Enter `PORTAL_SETUP_TOKEN`, then create the Managing Partner's account and set up two-factor.
-3. *Invitation codes*: make a code for each colleague (or let them create an account and approve it on *People & access*). They create their account at `/portal/signup`.
+2. Enter `PORTAL_SETUP_TOKEN`, then create the Managing Partner's account (set up two-factor under *Account* when ready).
+3. *Invitation codes*: make a code for each colleague and send them the link shown (it opens the account form with the code filled in; they are signed in as soon as they finish) (or let them create an account and approve it on *People & access*). They create their account at `/portal/signup`.
 4. On *People & access*, set designations: Senior Counsel (lawyers) and Head of Litigation (litigation team) can then make codes too.
 
 ### Reminders and the morning job

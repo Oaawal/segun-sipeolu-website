@@ -62,11 +62,21 @@ function checkKey(key: string) {
 }
 
 // ── Where encrypted files live ───────────────────────────────────
-// S3-compatible storage (Cloudflare R2, AWS S3, Supabase...) when STORAGE_S3_BUCKET
-// is set; otherwise the local disk under PORTAL_DATA_DIR. Either way the bytes
-// are encrypted before they leave this module.
+// 1. S3-compatible storage (Cloudflare R2, AWS S3...) when STORAGE_S3_BUCKET is set;
+// 2. otherwise Vercel Blob (private store) when BLOB_READ_WRITE_TOKEN is set;
+// 3. otherwise the local disk under PORTAL_DATA_DIR.
+// Whichever it is, the bytes are encrypted before they leave this module.
 export function s3Enabled() {
   return !!process.env.STORAGE_S3_BUCKET;
+}
+
+export function blobEnabled() {
+  return !s3Enabled() && !!process.env.BLOB_READ_WRITE_TOKEN;
+}
+
+/** Files go to cloud storage, so the browser sends large files straight there. */
+export function directUploads() {
+  return s3Enabled() || blobEnabled();
 }
 
 let s3Client: import("@aws-sdk/client-s3").S3Client | null = null;
@@ -88,23 +98,39 @@ async function s3() {
 const BUCKET = () => process.env.STORAGE_S3_BUCKET!;
 
 async function rawPut(objectKey: string, body: Buffer) {
+  if (blobEnabled()) {
+    const { put } = await import("@vercel/blob");
+    await put(objectKey, body, { access: "private", addRandomSuffix: false, allowOverwrite: false, contentType: "application/octet-stream" });
+    return;
+  }
   const { PutObjectCommand } = await import("@aws-sdk/client-s3");
   await (await s3()).send(new PutObjectCommand({ Bucket: BUCKET(), Key: objectKey, Body: body, ContentType: "application/octet-stream" }));
 }
 
 async function rawGet(objectKey: string): Promise<Buffer> {
+  if (blobEnabled()) {
+    const { get } = await import("@vercel/blob");
+    const r = await get(objectKey, { access: "private", useCache: false });
+    if (!r?.stream) throw new Error("File not found in storage");
+    return Buffer.from(await new Response(r.stream).arrayBuffer());
+  }
   const { GetObjectCommand } = await import("@aws-sdk/client-s3");
   const r = await (await s3()).send(new GetObjectCommand({ Bucket: BUCKET(), Key: objectKey }));
   return Buffer.from(await r.Body!.transformToByteArray());
 }
 
 async function rawDelete(objectKey: string) {
+  if (blobEnabled()) {
+    const { del } = await import("@vercel/blob");
+    await del(objectKey);
+    return;
+  }
   const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
   await (await s3()).send(new DeleteObjectCommand({ Bucket: BUCKET(), Key: objectKey }));
 }
 
 function guardServerless() {
-  if (process.env.VERCEL && !s3Enabled()) throw new Error("On Vercel, set STORAGE_S3_BUCKET and its keys (Cloudflare R2): Vercel has no permanent disk.");
+  if (process.env.VERCEL && !directUploads()) throw new Error("On Vercel, connect a Blob store (Storage → Blob) or set STORAGE_S3_BUCKET: Vercel has no permanent disk.");
 }
 
 /** Store bytes; returns the storage key and the SHA-256 of the original content. */
@@ -115,7 +141,7 @@ export async function putFile(bytes: Buffer): Promise<{ key: string; sha256: str
   const c = crypto.createCipheriv("aes-256-gcm", fileKey(), iv);
   const enc = Buffer.concat([c.update(bytes), c.final()]);
   const out = Buffer.concat([Buffer.from("SSA1"), iv, c.getAuthTag(), enc]);
-  if (s3Enabled()) {
+  if (directUploads()) {
     await rawPut(`files/${key}`, out);
   } else {
     const p = path.join(root(), key);
@@ -128,7 +154,7 @@ export async function putFile(bytes: Buffer): Promise<{ key: string; sha256: str
 /** Read and decrypt; throws if the file was altered (GCM tag) or does not match its recorded hash. */
 export async function getFile(key: string, expectedSha256?: string): Promise<Buffer> {
   checkKey(key);
-  const raw = s3Enabled() ? await rawGet(`files/${key}`) : await fs.readFile(path.join(root(), key));
+  const raw = directUploads() ? await rawGet(`files/${key}`) : await fs.readFile(path.join(root(), key));
   if (raw.subarray(0, 4).toString() !== "SSA1") throw new Error("Unknown file format");
   const iv = raw.subarray(4, 16);
   const tag = raw.subarray(16, 32);
@@ -141,7 +167,7 @@ export async function getFile(key: string, expectedSha256?: string): Promise<Buf
 
 export async function deleteFile(key: string) {
   checkKey(key);
-  if (s3Enabled()) await rawDelete(`files/${key}`);
+  if (directUploads()) await rawDelete(`files/${key}`);
   else await fs.rm(path.join(root(), key), { force: true });
 }
 
@@ -153,10 +179,22 @@ export async function deleteFile(key: string) {
 // copy. Staged objects are only ever readable by the server.
 export const STAGE_TTL_SECONDS = 15 * 60;
 
-export async function stagedUploadUrl(userId: string, size: number) {
+/**
+ * Permission for the browser to send one file into staging: a presigned link
+ * (S3/R2), or a Vercel Blob client token limited to that one path, size and
+ * time.
+ */
+export async function stagedUploadUrl(userId: string, size: number): Promise<{ key: string; url?: string; token?: string }> {
+  const key = `incoming/${userId}/${crypto.randomUUID()}`;
+  if (blobEnabled()) {
+    const { generateClientTokenFromReadWriteToken } = await import("@vercel/blob/client");
+    const token = await generateClientTokenFromReadWriteToken({
+      pathname: key, maximumSizeInBytes: size, validUntil: Date.now() + STAGE_TTL_SECONDS * 1000, addRandomSuffix: false, allowOverwrite: false,
+    });
+    return { key, token };
+  }
   const { PutObjectCommand } = await import("@aws-sdk/client-s3");
   const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
-  const key = `incoming/${userId}/${crypto.randomUUID()}`;
   const url = await getSignedUrl(await s3(), new PutObjectCommand({ Bucket: BUCKET(), Key: key, ContentLength: size, ContentType: "application/octet-stream" }), { expiresIn: STAGE_TTL_SECONDS });
   return { key, url };
 }

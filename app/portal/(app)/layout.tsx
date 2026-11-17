@@ -7,6 +7,7 @@ import { matterAccessSql } from "@/lib/portal/permissions";
 import { Nav, type NavGroup } from "@/components/portal/Nav";
 import { SearchBox } from "@/components/portal/SearchBox";
 import { reviewableSql } from "@/lib/portal/dedupe";
+import { UNREAD_SQL } from "@/lib/portal/chat";
 import { Avatar } from "@/components/portal/ui";
 import { logoutAction } from "../auth-actions";
 
@@ -14,9 +15,10 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const u = await requireUser();
-  const counts = await one<{ tasks: number; due: number; inbox: number; enquiries: number; timer: boolean; dups: number; pending: number }>(
+  const counts = await one<{ tasks: number; due: number; inbox: number; enquiries: number; timer: boolean; dups: number; pending: number; chat: number }>(
     `SELECT (SELECT COUNT(*) FROM tasks t WHERE t.status = 'open' AND t.assigned_to = $1 AND t.due_on <= CURRENT_DATE) AS tasks,
             (SELECT COUNT(*) FROM enquiries WHERE status = 'new') AS enquiries,
+            ${UNREAD_SQL} AS chat,
             EXISTS (SELECT 1 FROM timers WHERE user_id = $1) AS timer,
             ${can(u, "users.manage") ? "(SELECT COUNT(*) FROM users WHERE account_status = 'pending')" : "0"} AS pending,
             ${can(u, "documents.review_duplicates") ? `(SELECT COUNT(*) FROM document_duplicates x JOIN documents d ON d.id = x.document_id WHERE x.status = 'open' AND d.deleted_at IS NULL AND ${reviewableSql()})` : "0"} AS dups,
@@ -32,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       items: [
         { key: "today", label: "Today", href: "/portal" },
         { key: "files", label: "Office files", href: "/portal/files" },
+        { key: "chat", label: "Chat", href: "/portal/chat", badge: Number(counts?.chat) || 0 },
         { key: "inbox", label: "Inbox", href: "/portal/inbox", badge: counts?.inbox || 0 },
         ...(can(u, "mail.use") ? [{ key: "mail", label: "Mailbox", href: "/portal/mail" }] : []),
         ...(can(u, "assistant.use") ? [{ key: "ask", label: "Ask", href: "/portal/ask" }] : []),

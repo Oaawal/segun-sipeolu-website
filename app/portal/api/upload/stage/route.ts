@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { currentUser } from "@/lib/portal/auth";
-import { ext, MAX_FILE_BYTES, s3Enabled, stagedUploadUrl, uploadProblem } from "@/lib/portal/storage";
+import { ext, MAX_FILE_BYTES, directUploads, stagedUploadUrl, uploadProblem } from "@/lib/portal/storage";
 
 export const runtime = "nodejs";
 
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   if (!origin || new URL(origin).host !== req.headers.get("host")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const u = await currentUser();
   if (!u || !u.mfa_passed) return NextResponse.json({ error: "Your session has ended. Sign in again." }, { status: 401 });
-  if (!s3Enabled()) return NextResponse.json({ error: "Direct upload is not set up." }, { status: 400 });
+  if (!directUploads()) return NextResponse.json({ error: "Direct upload is not set up." }, { status: 400 });
   const body = (await req.json().catch(() => ({}))) as { name?: string; size?: number };
   const name = String(body.name || "file").slice(0, 200);
   const size = Number(body.size);

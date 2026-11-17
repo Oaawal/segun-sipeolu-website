@@ -13,6 +13,7 @@
     "@aws-sdk/client-s3": "3.1154.0",
     "@aws-sdk/s3-request-presigner": "3.1154.0",
     "@electric-sql/pglite": "^0.5.15",
+    "@vercel/blob": "2.8.2",
     "docx": "^9.15.2",
     "fflate": "0.8.3",
     "imapflow": "2.5.9",

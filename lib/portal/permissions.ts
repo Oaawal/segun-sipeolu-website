@@ -93,7 +93,7 @@ export function canRestore(u: { role: Role; designation?: Designation | null }) 
  * Partner can bring in a partner, and the admin role is never given by code.
  */
 export function invitableRoles(u: { role: Role; designation?: Designation | null }): Role[] {
-  if (u.role === "admin") return ["partner", "lawyer", "litigation", "front_desk"];
+  if (u.role === "admin") return ["admin", "partner", "lawyer", "litigation", "front_desk"];
   if (u.role === "partner") return ["lawyer", "litigation", "front_desk"];
   if (u.role === "lawyer" && u.designation === "senior_counsel") return ["lawyer", "litigation", "front_desk"];
   if (u.role === "litigation" && u.designation === "head_of_litigation") return ["litigation", "front_desk"];

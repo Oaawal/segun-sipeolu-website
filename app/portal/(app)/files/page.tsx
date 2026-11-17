@@ -8,7 +8,7 @@ import { matterFacts } from "@/lib/portal/guards";
 import { canSeeMatter } from "@/lib/portal/permissions";
 import { fmtDay, fmtSize } from "@/lib/portal/format";
 import { OFFICE_FOLDERS, type OfficeFolder } from "@/lib/portal/intake";
-import { s3Enabled } from "@/lib/portal/storage";
+import { directUploads } from "@/lib/portal/storage";
 import { Card, Empty, Flash, PageHeader, Tabs } from "@/components/portal/ui";
 import { Uploader } from "@/components/portal/Uploader";
 import { DocumentList } from "@/components/portal/Documents";
@@ -42,7 +42,7 @@ export default async function OfficeFiles({ searchParams }: { searchParams: Prom
         {ok ? (
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
             <Card pad={false}><DocumentList docs={docs} ownerType="matter" ownerId={m.id} canRemove={u.role !== "front_desk"} canUpload /></Card>
-            <Card><Uploader fixedMatter={m.id} direct={s3Enabled()} /></Card>
+            <Card><Uploader fixedMatter={m.id} direct={directUploads()} /></Card>
           </div>
         ) : <Card><Empty title="You cannot open this matter's files" /></Card>}
       </>
@@ -115,7 +115,7 @@ export default async function OfficeFiles({ searchParams }: { searchParams: Prom
           ))}
           {matters.length + all.length === 0 && <Empty title="Nothing here yet" />}
         </Card>
-        <Card><Uploader destination={folder === "personal" ? "personal" : `office:${folder}`} direct={s3Enabled()} /></Card>
+        <Card><Uploader destination={folder === "personal" ? "personal" : `office:${folder}`} direct={directUploads()} /></Card>
       </div>
     </>
   );

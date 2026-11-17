@@ -1,7 +1,7 @@
 import { CheckCircle2, Database, Download, XCircle } from "lucide-react";
 import { requirePermission } from "@/lib/portal/auth";
 import { dbEngineName, one, q } from "@/lib/portal/db";
-import { s3Enabled } from "@/lib/portal/storage";
+import { blobEnabled, directUploads, s3Enabled } from "@/lib/portal/storage";
 import { emailEnabled } from "@/lib/portal/notify";
 import { transcriptionEnabled } from "@/lib/portal/transcribe";
 import { minutesEnabled } from "@/lib/portal/minutes";
@@ -19,7 +19,7 @@ export default async function System({ searchParams }: { searchParams: Promise<{
   const checks: [string, boolean, string][] = [
     ["Secret key (APP_SECRET)", !!process.env.APP_SECRET && process.env.APP_SECRET.length >= 32, "Encrypts files and two-factor secrets. Keep a copy somewhere safe: without it, stored files cannot be read."],
     ["Database", true, dbEngineName()],
-    ["File storage", s3Enabled() || !process.env.VERCEL, s3Enabled() ? `S3-compatible bucket "${process.env.STORAGE_S3_BUCKET}" (files encrypted before upload; large uploads go straight to the bucket)` : "This server's disk (PORTAL_DATA_DIR). Back it up nightly."],
+    ["File storage", directUploads() || !process.env.VERCEL, s3Enabled() ? `S3-compatible bucket "${process.env.STORAGE_S3_BUCKET}" (files encrypted before upload; large uploads go straight to the bucket)` : blobEnabled() ? "Vercel Blob, private store (files encrypted before upload; large uploads go straight to the store)" : "This server's disk (PORTAL_DATA_DIR). Back it up nightly."],
     ["Email reminders (Brevo)", emailEnabled(), "BREVO_API_KEY and NOTIFY_FROM_EMAIL"],
     ["Daily reminders schedule (CRON_SECRET)", !!process.env.CRON_SECRET, "Call /portal/api/cron/reminders every morning"],
     ["Meeting transcription (Deepgram)", transcriptionEnabled(), "DEEPGRAM_API_KEY"],
@@ -80,7 +80,7 @@ export default async function System({ searchParams }: { searchParams: Promise<{
             </div>
             <p className="mt-2 text-xs text-stone-500">New files are read automatically within minutes. Scanned PDFs and photos are read by text recognition when Claude is switched on.</p>
           </Card>
-          <Note tone="lock"><Database className="mb-1 inline h-4 w-4" /> Backups hold every record (not the files) and are encrypted with APP_SECRET where they are stored. A downloaded backup is not encrypted: keep it somewhere safe. Files are stored separately{s3Enabled() ? " in the bucket" : " in the data folder on the server: back that up too"}, together with APP_SECRET.</Note>
+          <Note tone="lock"><Database className="mb-1 inline h-4 w-4" /> Backups hold every record (not the files) and are encrypted with APP_SECRET where they are stored. A downloaded backup is not encrypted: keep it somewhere safe. Files are stored separately{directUploads() ? " in cloud storage" : " in the data folder on the server: back that up too"}, together with APP_SECRET.</Note>
         </div>
       </div>
       <Card title="Errors (last 90 days)" className="mt-6" pad={false}>

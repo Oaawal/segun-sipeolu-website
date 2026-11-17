@@ -969,4 +969,30 @@ ALTER TABLE users DROP CONSTRAINT users_designation_check;
 ALTER TABLE users ADD CONSTRAINT users_designation_check CHECK (designation IN ('head_of_litigation','senior_counsel','it_officer'));
 `,
   },
+  {
+    id: "0009_chat",
+    sql: /* sql */ `
+-- The Managing Partner can invite another Managing Partner
+ALTER TABLE invite_codes DROP CONSTRAINT invite_codes_role_check;
+ALTER TABLE invite_codes ADD CONSTRAINT invite_codes_role_check CHECK (role IN ('admin','partner','lawyer','litigation','front_desk'));
+
+-- ── Staff chat ─────────────────────────────────────────────────
+-- channel is 'firm' (everyone) or 'dm:<id>:<id>' (two people, ids in order).
+-- Message text is encrypted (AES-256-GCM) before it is stored.
+CREATE TABLE chat_messages (
+  id          BIGSERIAL PRIMARY KEY,
+  channel     TEXT NOT NULL CHECK (channel = 'firm' OR channel LIKE 'dm:%'),
+  sender_id   UUID NOT NULL REFERENCES users(id),
+  body        TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX chat_messages_channel ON chat_messages(channel, id);
+CREATE TABLE chat_reads (
+  user_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  channel  TEXT NOT NULL,
+  last_id  BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, channel)
+);
+`,
+  },
 ];

@@ -10,8 +10,9 @@ import { can, type Actor, type Designation, type Permission, type Role } from ".
  * Sessions for the staff portal.
  *  - The cookie holds a random token; only its SHA-256 is stored.
  *  - Sessions end after 30 minutes idle (PORTAL_IDLE_MINUTES) and 12 hours at most.
- *  - Partners and admins must use an authenticator app (two-factor); set
- *    PORTAL_REQUIRE_2FA=all to require it for everyone.
+ *  - Two-factor (authenticator app) is recommended but optional by default.
+ *    PORTAL_REQUIRE_2FA=partners requires it for partners and admins;
+ *    PORTAL_REQUIRE_2FA=all requires it for everyone.
  *  - Deactivating someone ends their sessions at once.
  */
 
@@ -29,8 +30,8 @@ export interface SessionUser extends Actor {
 
 export function mfaRequired(role: Role): boolean {
   if (process.env.PORTAL_REQUIRE_2FA === "all") return true;
-  if (process.env.PORTAL_REQUIRE_2FA === "none") return false;
-  return role === "admin" || role === "partner";
+  if (process.env.PORTAL_REQUIRE_2FA === "partners") return role === "admin" || role === "partner";
+  return false;
 }
 
 export async function requestMeta() {
@@ -66,7 +67,18 @@ export async function endSession() {
 }
 
 /** The signed-in person for this request, or null. Cached per request. */
-export const currentUser = cache(async (): Promise<SessionUser | null> => {
+export const currentUser = cache(async (): Promise<SessionUser | null> => sessionUser(true));
+
+/**
+ * The signed-in person, without counting this request as activity. For
+ * background checks (e.g. chat looking for new messages every few seconds),
+ * so that an open page does not keep an idle session alive.
+ */
+export async function peekUser(): Promise<SessionUser | null> {
+  return sessionUser(false);
+}
+
+async function sessionUser(touch: boolean): Promise<SessionUser | null> {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   const hash = sha256(token);
@@ -79,11 +91,11 @@ export const currentUser = cache(async (): Promise<SessionUser | null> => {
   );
   if (!row) return null;
   // Refresh the idle timer at most once a minute
-  if (Date.now() - new Date(row.last_seen_at).getTime() > 60_000) {
+  if (touch && Date.now() - new Date(row.last_seen_at).getTime() > 60_000) {
     await q("UPDATE sessions SET last_seen_at = now() WHERE token_hash = $1", [hash]);
   }
   return row;
-});
+}
 
 /** For every portal page: signed in, two-factor done where required. */
 export async function requireUser(): Promise<SessionUser> {
